@@ -9,6 +9,7 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 | [`AUDIT_REKOMENDASI_V2.md`](./AUDIT_REKOMENDASI_V2.md) | Audit codebase v1 (19 bug + severity), prinsip wajib aplikasi akuntansi, rekomendasi stack awal, rencana migrasi 6 fase, quick wins v1 |
 | [`NESTJS_RATIONALE.md`](./NESTJS_RATIONALE.md) | Alasan teknis & bisnis pakai NestJS (vs Next.js as backend), 12 alasan konkret, struktur folder usulan |
 | [`API_STYLE.md`](./API_STYLE.md) | Perbandingan REST+OpenAPI vs tRPC vs Hybrid, dengan rekomendasi & detail implementasi |
+| [`POSTGRESQL_RATIONALE.md`](./POSTGRESQL_RATIONALE.md) | Perbandingan PostgreSQL vs MySQL untuk aplikasi akuntansi (RLS, DEFERRABLE constraints, ekstensi) |
 | [`ERD.md`](./ERD.md) | Entity relationship diagram (Mermaid), sequence diagram posting/import/RLS, state machine period & import, penjelasan keputusan desain |
 | [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md) | Strategi & langkah ETL v1 (MySQL) → v2 (PostgreSQL), mapping tabel, reconciliation queries, timeline cutover |
 
@@ -28,48 +29,38 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 | [`../migrations/0010_indexes.sql`](../migrations/0010_indexes.sql) | Composite indexes untuk laporan, trigram untuk full-text |
 | [`../seeds/coa_default_indonesia.sql`](../seeds/coa_default_indonesia.sql) | Function `seed_default_coa()` + `bootstrap_accounting_periods()` |
 
-## Cara menjalankan migrations (manual, untuk uji)
+## Cara menjalankan migrations (recommended: pakai runner)
 
-Asumsi: PostgreSQL 16 sudah jalan, ada user `postgres`.
+Project ini sudah ship runner Node.js di `packages/db/scripts/`. Dari repo root:
 
 ```bash
-# 1. Create database
-createdb eccounting_v2_dev
+# install deps
+pnpm install
 
-# 2. Jalan dari urut nomor (sebagai superuser dulu untuk roles)
-psql -d eccounting_v2_dev -f migrations/0001_extensions.sql
-psql -d eccounting_v2_dev -f migrations/0002_roles.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0003_core_tables.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0004_accounts_periods.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0005_ledger.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0006_ledger_constraints.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0007_reporting.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0008_import_audit.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0009_rls.sql
-psql -d eccounting_v2_dev -U app_owner -f migrations/0010_indexes.sql
+# spin up infra
+./scripts/dev-up.sh                  # docker + migrate + load seed function
 
-# 3. Load seed function
-psql -d eccounting_v2_dev -U app_owner -f seeds/coa_default_indonesia.sql
-
-# 4. Smoke test: create firm, company, seed COA
-psql -d eccounting_v2_dev -U app_owner <<SQL
-INSERT INTO firms (name) VALUES ('Kantor Konsultan Demo') RETURNING id;
-INSERT INTO companies (firm_id, name) VALUES (1, 'PT Demo Klien') RETURNING id;
-SELECT seed_default_coa(1);
-SELECT bootstrap_accounting_periods(1, 2026::SMALLINT);
-SET LOCAL app.company_id = '1';
-SELECT count(*) FROM accounts;     -- harus ~150
-SELECT count(*) FROM accounting_periods;  -- harus 12
-SQL
+# atau manual step-by-step:
+docker compose up -d
+pnpm db:migrate                      # apply semua migrations (idempotent)
+pnpm db:migrate -- --dry-run         # preview saja
+pnpm db:migrate -- --to 0005         # apply sampai versi tertentu
+pnpm db:seed                         # load function seed (tidak insert data)
+pnpm db:seed -- --bootstrap-demo     # + bikin firm/user/company demo
+pnpm db:reset -- --yes               # DROP SCHEMA + recreate (DEV ONLY)
 ```
 
-Kalau pakai migration tool (recommended untuk production):
+Runner ada di `packages/db/scripts/run-migrations.ts` (idempotent via checksum di tabel `eccounting._migrations`) dan `packages/db/scripts/run-seeds.ts`.
 
-- **golang-migrate**: rename file ke `0001_extensions.up.sql` & buat `.down.sql` pairs
-- **node-pg-migrate**: convert ke `.js` wrapper atau pakai `--migrations-table`
-- **Drizzle Kit**: pakai sebagai raw SQL migration via `drizzle.config.ts` → `out: './migrations'`
-- **Atlas**: support raw SQL natif
-- **Laravel Artisan** (jika hybrid v1): wrap di `DB::unprepared(file_get_contents('migrations/0001_extensions.sql'))`
+### Manual (kalau mau jalan tanpa runner)
+
+```bash
+createdb eccounting_v2_dev
+for f in migrations/*.sql; do
+  psql -d eccounting_v2_dev -v ON_ERROR_STOP=1 -f "$f"
+done
+psql -d eccounting_v2_dev -f seeds/coa_default_indonesia.sql
+```
 
 ## Konvensi penamaan
 
@@ -80,11 +71,20 @@ Kalau pakai migration tool (recommended untuk production):
 - Trigger: `trg_<purpose>` untuk function, `<table>_<event>` untuk trigger name
 - Error code di RAISE EXCEPTION: SCREAMING_SNAKE (mis. `JOURNAL_UNBALANCED`) — di-parse aplikasi untuk return business error
 
-## Next step
+## Next step (implementasi)
 
-Setelah review dokumen-dokumen ini, langkah berikutnya:
+Foundation sudah scaffolded (lihat [`../README.md`](../README.md) §Status implementasi).
+Roadmap modul berikutnya:
 
-1. **Konfirmasi gaya API** (REST + OpenAPI vs tRPC vs hybrid) — lihat `API_STYLE.md`.
-2. **Scaffold monorepo** (Turborepo + pnpm + NestJS + Next.js + Drizzle + Docker Compose) — saya bisa generate ini kalau sudah confirm.
-3. **Implementasi modul pertama**: `auth` + `companies` + `accounts` + `periods` sebagai foundation, lalu `journal` sebagai inti.
-4. **ETL service v1 → v2** paralel dengan development v2.
+1. **Auth module** (`apps/api/src/modules/auth/`)
+   - argon2id password hashing
+   - JWT issue + refresh + revoke
+   - `JwtAuthGuard` & `CurrentUser` decorator
+2. **Companies module** + `CompanyMemberGuard`
+   - Saat create company: panggil `seed_default_coa()` + `bootstrap_accounting_periods()` dalam 1 transaction
+3. **Accounts module** (CRUD + query subtree via `ltree` op `<@`)
+4. **Periods module** (state machine: open → closed → locked)
+5. **Journal module** (inti) — `JournalService.postEntry` atomic dengan tenant context (RLS)
+6. **Reports module** (neraca, laba rugi, buku besar, neraca saldo) — baca dari `account_period_balance`
+7. **Import module** (upload Excel → `import_batches` insert → enqueue → worker process)
+8. **ETL v1 → v2** paralel — lihat [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md)
