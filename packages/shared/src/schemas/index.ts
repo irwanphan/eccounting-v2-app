@@ -1,6 +1,7 @@
 export * from './common.js';
 export * from './firm.js';
 export * from './user.js';
+export * from './auth.js';
 export * from './company.js';
 export * from './account.js';
 export * from './period.js';
