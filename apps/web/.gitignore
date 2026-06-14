@@ -1,0 +1,9 @@
+.next
+node_modules
+out
+coverage
+*.tsbuildinfo
+.env
+.env.local
+next-env.d.ts
+src/generated
