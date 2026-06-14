@@ -1,5 +1,7 @@
 export * from './firms.js';
 export * from './users.js';
+export * from './refresh-tokens.js';
+export * from './password-reset-tokens.js';
 export * from './companies.js';
 export * from './company-members.js';
 export * from './accounts.js';
