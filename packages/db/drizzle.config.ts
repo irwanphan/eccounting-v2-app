@@ -12,6 +12,6 @@ export default defineConfig({
   verbose: true,
   strict: true,
   introspect: {
-    casing: 'snake_case',
+    casing: 'preserve',
   },
 });

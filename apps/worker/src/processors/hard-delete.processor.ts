@@ -24,7 +24,8 @@ export interface HardDeleteJobData {
 export class HardDeleteProcessor extends WorkerHost {
   private readonly logger = new Logger(HardDeleteProcessor.name);
 
-  constructor(private readonly _db: DbService) {
+  // DI placeholder — akan dipakai begitu per-entity delete logic diimplementasi
+  constructor(protected readonly db: DbService) {
     super();
   }
 
@@ -33,8 +34,7 @@ export class HardDeleteProcessor extends WorkerHost {
       `[${job.id}] hard-delete ${job.data.entityType}=${job.data.entityId} by user=${job.data.requestedBy}`,
     );
 
-    // TODO: per-type guard + delete logic
-    // Placeholder agar processor terdaftar
+    void this.db;
     await Promise.resolve();
   }
 }
