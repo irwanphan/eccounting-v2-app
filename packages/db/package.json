@@ -20,6 +20,7 @@
     "migrate": "tsx scripts/run-migrations.ts",
     "seed": "tsx scripts/run-seeds.ts",
     "reset": "tsx scripts/reset-db.ts",
+    "bootstrap-from-v1": "tsx scripts/bootstrap-from-v1.ts",
     "studio": "drizzle-kit studio",
     "introspect": "drizzle-kit introspect"
   },
@@ -33,6 +34,7 @@
     "@types/pg": "^8.11.10",
     "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
+    "mysql2": "^3.11.4",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.1",
     "typescript": "^5.5.4"
