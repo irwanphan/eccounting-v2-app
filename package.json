@@ -1,0 +1,32 @@
+{
+  "name": "eccounting-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eccounting v2 monorepo — multi-company accounting platform untuk konsultan pajak",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "clean": "turbo run clean && rimraf node_modules .turbo",
+    "db:migrate": "pnpm --filter @eccounting/db migrate",
+    "db:seed": "pnpm --filter @eccounting/db seed",
+    "db:reset": "pnpm --filter @eccounting/db reset",
+    "openapi:codegen": "pnpm --filter @eccounting/web codegen"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.1.3",
+    "typescript": "^5.5.4"
+  }
+}

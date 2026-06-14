@@ -1,0 +1,31 @@
+{
+  "name": "@eccounting/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared tooling configs (tsconfig presets, eslint, prettier)",
+  "type": "module",
+  "files": [
+    "tsconfig.*.json",
+    "eslint/**",
+    "prettier/**"
+  ],
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig.base.json",
+    "./tsconfig/node.json": "./tsconfig.node.json",
+    "./tsconfig/nest.json": "./tsconfig.nest.json",
+    "./tsconfig/next.json": "./tsconfig.next.json",
+    "./tsconfig/lib.json": "./tsconfig.lib.json",
+    "./eslint/base": "./eslint/base.cjs",
+    "./eslint/node": "./eslint/node.cjs",
+    "./eslint/next": "./eslint/next.cjs",
+    "./prettier": "./prettier/index.cjs"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^9.11.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-unicorn": "^55.0.0"
+  }
+}

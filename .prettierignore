@@ -1,0 +1,13 @@
+node_modules
+.pnpm-store
+.turbo
+dist
+build
+.next
+coverage
+*.tsbuildinfo
+*.lock
+*.log
+generated/
+src/generated/
+pnpm-lock.yaml
