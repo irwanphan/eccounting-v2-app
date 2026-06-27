@@ -46,11 +46,11 @@ function DrawerNavItem({
   onNavigate: () => void;
 }): JSX.Element {
   const className = cn(
-    'mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-[#8ec5fb] bg-[#44a0f8] py-0 pl-6 pr-4',
+    'mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-sky-300 bg-sky-500/80 py-0 pl-6 pr-4',
     'text-base font-normal capitalize leading-[44px] text-white shadow-md transition duration-300',
-    'hover:border-[#ffd41a] focus:border-[#ffd41a] active:border-[#ffde4d]',
-    item.disabled && 'cursor-not-allowed opacity-80 hover:border-[#8ec5fb]',
-    active && 'border-[#ffd41a]',
+    'hover:border-yellow-300 focus:border-yellow-300 active:border-yellow-400',
+    item.disabled && 'cursor-not-allowed opacity-80 hover:border-slate-400',
+    active && 'border-yellow-400',
   );
 
   if (item.disabled) {
@@ -74,7 +74,7 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#c5e3f6]">
+    <div className="min-h-screen overflow-x-hidden bg-sky-200">
       {/* Toggle — kuning bulat, setara v1 label[for=drawer] */}
       <button
         type="button"
@@ -82,8 +82,8 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'fixed z-[77] flex h-16 w-16 items-center justify-center rounded-full shadow-md transition-all duration-300',
-          open ? 'bg-[#75b9fa] text-black left-4 top-4' 
-               : 'bg-[#ffd000] text-[#2e2e2e] hover:bg-[#75b9fa] -left-4 -top-4',
+          open ? 'bg-sky-400 text-black left-4 top-4' 
+               : 'bg-yellow-400 text-slate-800 hover:bg-sky-500 -left-4 -top-4',
         )}
       >
         {open ? <X className="h-8 w-8" /> : <MoreHorizontal className="h-8 w-8" />}
@@ -134,7 +134,7 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
             closeDrawer();
             logout();
           }}
-          className="mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-[#8ec5fb] bg-[#44a0f8] py-0 pl-6 pr-4 text-left text-base font-normal capitalize leading-[44px] text-white shadow-md transition hover:border-[#ffd41a] focus:border-[#ffd41a] active:border-[#ffde4d]"
+          className="mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-sky-300 bg-sky-500/80 py-0 pl-6 pr-4 text-left text-base font-normal capitalize leading-[44px] text-white shadow-md transition hover:border-yellow-300 focus:border-yellow-300 active:border-yellow-400"
         >
           Logout
         </button>
