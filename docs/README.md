@@ -13,6 +13,24 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 | [`ERD.md`](./ERD.md) | Entity relationship diagram (Mermaid), sequence diagram posting/import/RLS, state machine period & import, penjelasan keputusan desain |
 | [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md) | Strategi & langkah ETL v1 (MySQL) → v2 (PostgreSQL), mapping tabel, reconciliation queries, timeline cutover |
 
+## Infra development (`docker-compose.yml`)
+
+`docker compose` di repo ini **khusus untuk development lokal** (`name: eccounting-v2-dev`). Semua service infra berjalan di **container**; aplikasi (API, web, worker) dijalankan di host via `pnpm dev`.
+
+| Container | Image | Port default | Fungsi |
+|---|---|---|---|
+| `eccounting-v2-postgres` | `postgres:16-alpine` | 5432 | Database utama |
+| `eccounting-v2-redis` | `redis:7-alpine` | 6379 | Queue BullMQ + cache |
+| `eccounting-v2-minio` | `minio/minio` | 9000 (API), 9001 (console) | Pengganti S3 untuk file import Excel (dev) |
+| `eccounting-v2-minio-init` | `minio/mc` | — | One-shot: buat bucket `eccounting-imports` |
+| `eccounting-v2-mailhog` | `mailhog/mailhog` | 1025 (SMTP), 8025 (UI) | Pengganti SMTP untuk tes email |
+
+Data container persist di named volumes: `postgres_data`, `redis_data`, `minio_data`.
+
+> **Production:** Redis dan object storage tidak wajib di-container — bisa pakai managed service (Upstash, Cloudflare R2, dll.). Detail opsi deploy akan ditambahkan di `DEPLOYMENT.md`.
+
+Retensi file import Excel: lihat [`ERD.md` §5.1](./ERD.md) — metadata permanen di `import_batches`, object file sementara di MinIO/S3.
+
 ## Daftar artefak SQL & seed
 
 | File | Isi |

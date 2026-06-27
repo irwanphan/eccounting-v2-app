@@ -348,7 +348,7 @@ Disimpan di repo: `apps/etl-v1-to-v2/recon/*.sql`
 | Konsultan accidental posting di v1 setelah cutover | Setelah cutover, lakukan `REVOKE INSERT, UPDATE, DELETE` di v1 untuk company tsb. |
 | Hash chain audit v1 tidak bisa diverifikasi (v1 tidak punya hash) | Audit v1 di-import as-is dengan `prev_hash = NULL` di row pertama; chain v2 mulai dari sini. Konsultan dijelaskan: audit historis v1 best-effort, audit v2 tamper-evident. |
 | Periode lama di-edit setelah migrasi | Set semua period sebelum cutover-date jadi `closed` di v2; reopen manual via UI dengan permission khusus + audit. |
-| File Excel batch_import asli sudah tidak ada | `file_sha256` di-isi `'V1-MIGRATED-' || batch.id`, `storage_key` NULL, `status='done'`. Cuma untuk historical reference. |
+| File Excel batch_import asli sudah tidak ada | `file_sha256` di-isi `'V1-MIGRATED-' || batch.id`, `storage_key` NULL, `status='done'`. Cuma metadata historical — selaras dengan kebijakan v2: metadata permanen, object file tidak wajib (lihat [`ERD.md` §5.1](./ERD.md)). |
 
 ---
 

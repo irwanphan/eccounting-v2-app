@@ -279,6 +279,40 @@ Yang **berbeda dari v1**:
 - Async dengan progress visibility.
 - Tidak ada `temp_journal` shared di DB.
 
+### 5.1 Retensi file Excel — metadata permanen, object sementara
+
+Di v1, file Excel disimpan ke `storage/app/public/journals/` tetapi **tidak pernah dibaca ulang** setelah parse awal — hanya metadata `batch_import.file_name` yang dipakai untuk traceability. v2 mengikuti prinsip yang sama: **data akuntansi hidup di `journal_entries`**, bukan di file Excel.
+
+| Yang disimpan | Di mana | Berapa lama |
+|---|---|---|
+| **Metadata import** (`file_name`, `file_sha256`, counters, `error_summary`, `status`, timestamps) | Tabel `import_batches` (PostgreSQL) | **Permanen** — untuk idempotency, audit, dan link ke `journal_entries.import_batch_id` |
+| **Object file Excel** | S3 / MinIO (dev) / Cloudflare R2 (prod) | **Sementara** — hanya selama worker butuh akses |
+
+**Kebijakan retensi object file (default):**
+
+1. **Upload** → simpan ke object storage, enqueue worker.
+2. **Worker selesai** (`done` / `done_with_errors` / `failed`) → file tetap ada **7 hari** (grace period untuk retry manual / investigasi error).
+3. **Setelah grace period** → scheduler hapus object di S3, set `storage_key = NULL` di `import_batches`. Metadata lain tetap utuh.
+4. **Import ulang file yang sama** → ditolak via `UNIQUE (company_id, file_sha256)` meski object sudah dihapus.
+
+```
+pending/processing  →  file WAJIB ada di object storage
+done/done_with_errors/failed  →  file OPSIONAL (metadata cukup untuk operasi harian)
++7 hari setelah finished_at  →  hapus object, pertahankan metadata
+```
+
+**Kenapa file sementara tetap perlu (bukan langsung buang setelah parse)?**
+
+- Handoff async: API return 202 sebelum worker selesai.
+- Retry kalau worker crash di tengah proses.
+- Investigasi `failed` / `done_with_errors` (baris mana yang gagal vs file asli).
+
+**Kenapa tidak simpan file permanen seperti v1?**
+
+- Setelah posting sukses, neraca/laporan baca dari `journal_entries` + `account_period_balance`, bukan Excel.
+- Hemat storage (file 30 MB × ratusan import/bulan cepat menumpuk).
+- Data migrasi v1 sering sudah tidak punya file asli — lihat [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md) §7.
+
 ---
 
 ## 6. Sequence diagram — tenant context (RLS)
@@ -341,15 +375,18 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending: file uploaded
+    [*] --> pending: file uploaded ke S3/MinIO
     pending --> processing: worker pickup
     processing --> done: semua baris berhasil
     processing --> failed: error tidak recoverable
     processing --> done_with_errors: sebagian baris gagal
-    failed --> [*]
-    done --> [*]
-    done_with_errors --> [*]
+    done --> object_retained: grace 7 hari
+    done_with_errors --> object_retained
+    failed --> object_retained
+    object_retained --> [*]: hapus object S3, metadata tetap di import_batches
 ```
+
+Catatan: state terminal `object_retained → [*]` dijalankan oleh **scheduler** (bukan user action). Metadata (`file_name`, `file_sha256`, counters) tidak pernah dihapus.
 
 ---
 
@@ -395,6 +432,15 @@ Kalau ada baris di-edit/delete (misal DBA usil), hash chain putus → terdeteksi
 ### 9.6 Kenapa `reversal_of_id` di `journal_entries`?
 
 Append-only design: koreksi = entry baru dengan tanda `reversal_of_id` menunjuk entry lama. Original tetap ada (immutable), pembalik tercatat eksplisit. Audit trail bersih, tidak ada "data hilang misterius".
+
+### 9.7 Kenapa simpan metadata import, bukan file Excel permanen?
+
+v1 menyimpan file ke disk tetapi tidak memakainya lagi setelah parse — pola yang tidak disengaja menumpuk storage. v2 memisahkan:
+
+- **Metadata** (`import_batches`) → permanen, untuk idempotency (`file_sha256`), traceability (`journal_entries.import_batch_id`), dan ringkasan error.
+- **Object file** → sementara di object storage, hanya untuk async handoff + retry.
+
+Ini berbeda dari arsip dokumen pajak (invoice PDF, dll.) yang memang perlu disimpan lama. File Excel import adalah **vehikel input**, bukan sumber kebenaran akuntansi setelah posting.
 
 ---
 
