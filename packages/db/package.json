@@ -37,6 +37,7 @@
     "seed": "tsx scripts/run-seeds.ts",
     "reset": "tsx scripts/reset-db.ts",
     "bootstrap-from-v1": "tsx scripts/bootstrap-from-v1.ts",
+    "etl-company-from-v1": "tsx scripts/etl-company-from-v1.ts",
     "set-dev-password": "tsx scripts/set-dev-password.ts",
     "studio": "drizzle-kit studio",
     "introspect": "drizzle-kit introspect"

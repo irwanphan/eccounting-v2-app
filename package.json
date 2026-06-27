@@ -21,6 +21,7 @@
     "db:seed": "pnpm --filter @eccounting/db seed",
     "db:reset": "pnpm --filter @eccounting/db reset",
     "db:bootstrap-from-v1": "pnpm --filter @eccounting/db bootstrap-from-v1",
+    "db:etl-company-from-v1": "pnpm --filter @eccounting/db etl-company-from-v1",
     "db:set-dev-password": "pnpm --filter @eccounting/db set-dev-password",
     "openapi:codegen": "pnpm --filter @eccounting/web codegen"
   },
