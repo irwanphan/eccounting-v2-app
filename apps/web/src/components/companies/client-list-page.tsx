@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeftRight, Pencil, Search, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Pencil, PhoneCall, MapPin, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { ClientActionButton } from '@/components/companies/client-action-button';
@@ -159,8 +159,13 @@ export function ClientListPage({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-base font-semibold text-slate-900">{company.name}</p>
                 <p className="mt-0.5 truncate text-sm text-slate-500">
-                  {company.address?.trim() || '—'}
+                  <PhoneCall className="h-3 w-3 inline-block mr-0.5" /> {company.phone?.trim() || '—'}  <MapPin className="h-3 w-3 inline-block mr-0.5 ml-3 -mt-1" /> {company.address?.trim() || '—'}
                 </p>
+                {company.legacyV1ClientId && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    v1 client #{company.legacyV1ClientId}
+                  </p>
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
