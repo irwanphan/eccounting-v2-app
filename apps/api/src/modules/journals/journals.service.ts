@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   accounts,
   journalEntries,
@@ -6,6 +6,7 @@ import {
   type JournalEntry,
 } from '@eccounting/db';
 import type {
+  CreateJournalEntryInput,
   JournalDetailRow,
   JournalGroupedRow,
   JournalLineView,
@@ -13,6 +14,8 @@ import type {
 import { and, asc, between, desc, eq, sql } from 'drizzle-orm';
 
 import { DbService } from '../../infra/db/db.service';
+import { parseJournalImportFile, type ParsedImportLine } from './journal-import.parser';
+import { buildJournalImportTemplateBuffer } from './journal-import.template';
 
 @Injectable()
 export class JournalsService {
@@ -139,6 +142,70 @@ export class JournalsService {
         credit: String(line.credit),
       })),
     };
+  }
+
+  async createEntry(
+    companyId: bigint,
+    userId: bigint,
+    input: CreateJournalEntryInput,
+  ): Promise<{ id: string; postingNumber: string }> {
+    return this.db.withTenant(companyId, async (tx) => {
+      const transactionDate = input.transactionDate ?? input.postingDate;
+
+      const postingResult = await tx.execute<{ next_posting_number: string }>(
+        sql`SELECT next_posting_number(${companyId}, ${input.postingDate}::date) AS next_posting_number`,
+      );
+      const postingNumber = postingResult.rows[0]?.next_posting_number;
+      if (!postingNumber) {
+        throw new Error('Gagal generate posting number');
+      }
+
+      const [entry] = await tx
+        .insert(journalEntries)
+        .values({
+          companyId,
+          postingNumber,
+          postingDate: input.postingDate,
+          transactionDate,
+          description: input.description ?? null,
+          source: input.source ?? 'manual',
+          reversalOfId: input.reversalOfId ? BigInt(input.reversalOfId) : null,
+          createdBy: userId,
+        })
+        .returning();
+
+      if (!entry) throw new Error('Gagal menyimpan jurnal');
+
+      let lineNo = 1;
+      for (const line of input.lines) {
+        await tx.insert(journalLines).values({
+          journalEntryId: entry.id,
+          companyId,
+          accountId: BigInt(line.accountId),
+          lineNo,
+          debit: line.debit,
+          credit: line.credit,
+          reference: line.reference ?? null,
+          description: line.description ?? null,
+        });
+        lineNo += 1;
+      }
+
+      return { id: String(entry.id), postingNumber: entry.postingNumber };
+    });
+  }
+
+  async buildImportTemplate(): Promise<{ buffer: Buffer; filename: string }> {
+    const buffer = await buildJournalImportTemplateBuffer();
+    return { buffer, filename: 'template import.xlsx' };
+  }
+
+  async parseImportPreview(companyId: bigint, buffer: Buffer): Promise<ParsedImportLine[]> {
+    try {
+      return await parseJournalImportFile(this.db, companyId, buffer);
+    } catch (err) {
+      throw new BadRequestException(err instanceof Error ? err.message : 'Import gagal');
+    }
   }
 
   private toGroupedRow(row: {

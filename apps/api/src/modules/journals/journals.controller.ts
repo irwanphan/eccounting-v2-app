@@ -1,8 +1,25 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  StreamableFile,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { createJournalEntrySchema, type CreateJournalEntryInput } from '@eccounting/shared';
+import type { FastifyRequest } from 'fastify';
+import { Readable } from 'node:stream';
 
+import { CurrentUser, type AuthUserContext } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CompanyMemberGuard } from '../../common/guards/company-member.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { JournalsService } from './journals.service';
 
 @ApiTags('journals')
@@ -42,6 +59,46 @@ export class JournalsController {
   ) {
     const data = await this.journals.listDetail(BigInt(companyId), dateStart, dateEnd);
     return { data, meta: { total: data.length } };
+  }
+
+  @Get('import/template')
+  @ApiOperation({ summary: 'Unduh template import jurnal (.xlsx)' })
+  async downloadImportTemplate(): Promise<StreamableFile> {
+    const { buffer, filename } = await this.journals.buildImportTemplate();
+    return new StreamableFile(Readable.from(buffer), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
+  @Post('import/preview')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Parse file import Excel → baris draft jurnal (setara v1 import ke temp_journal)',
+  })
+  async previewImport(
+    @Param('companyId') companyId: string,
+    @Req() req: FastifyRequest,
+  ): Promise<{ data: Awaited<ReturnType<JournalsService['parseImportPreview']>> }> {
+    const file = await req.file();
+    if (!file) {
+      throw new BadRequestException('File import wajib diisi');
+    }
+    const buffer = await file.toBuffer();
+    const data = await this.journals.parseImportPreview(BigInt(companyId), buffer);
+    return { data };
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Posting jurnal manual baru (setara v1 journal.store)' })
+  @UsePipes(new ZodValidationPipe(createJournalEntrySchema))
+  async create(
+    @Param('companyId') companyId: string,
+    @Body() body: CreateJournalEntryInput,
+    @CurrentUser() user: AuthUserContext,
+  ) {
+    const result = await this.journals.createEntry(BigInt(companyId), user.userId, body);
+    return { data: result };
   }
 
   @Get(':entryId/lines')
