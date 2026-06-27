@@ -239,7 +239,7 @@ export function JournalListPage(): JSX.Element {
                               type="button"
                               title="Lihat"
                               onClick={() => openView(row.id, row.postingNumber)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600 transition duration-300 cursor-pointer disabled:cursor-not-allowed"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
@@ -247,7 +247,7 @@ export function JournalListPage(): JSX.Element {
                               type="button"
                               title="Hapus (menyusul — v2 pakai reversal)"
                               disabled
-                              className="inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-full bg-orange-400/50 text-white"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 hover:bg-rose-600 text-white transition duration-300 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

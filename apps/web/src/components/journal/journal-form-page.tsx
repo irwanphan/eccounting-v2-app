@@ -1,8 +1,8 @@
 'use client';
 
-import type { AccountTreeNode } from '@eccounting/shared';
+import type { AccountTreeNode, AccountTreeResponse } from '@eccounting/shared';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { ApiError, apiFetch } from '@/lib/api-client';
@@ -45,11 +45,11 @@ function sumAmount(lines: JournalDraftLine[], field: 'debit' | 'credit'): number
 
 export function JournalFormPage(): JSX.Element {
   const router = useRouter();
-  const company = getSelectedCompany();
+  const companyId = getSelectedCompany()?.id ?? null;
   const today = new Date().toISOString().slice(0, 10);
 
   const [draft, setDraft] = useState<JournalDraft>(() =>
-    company ? getJournalDraft(company.id) ?? createEmptyDraft(today) : createEmptyDraft(today),
+    companyId ? getJournalDraft(companyId) ?? createEmptyDraft(today) : createEmptyDraft(today),
   );
   const [accountOptions, setAccountOptions] = useState<SearchableSelectOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -64,18 +64,32 @@ export function JournalFormPage(): JSX.Element {
   const [lineCredit, setLineCredit] = useState('');
 
   useEffect(() => {
-    if (!company) return;
-    saveJournalDraft(company.id, draft);
-  }, [company, draft]);
+    if (!companyId) return;
+    saveJournalDraft(companyId, draft);
+  }, [companyId, draft]);
+
+  const loadAccounts = useCallback(async (): Promise<void> => {
+    if (!companyId) {
+      setAccountOptions([]);
+      setLoadingAccounts(false);
+      return;
+    }
+    setLoadingAccounts(true);
+    try {
+      const res = await apiFetch<{ data: AccountTreeResponse }>(
+        `/companies/${companyId}/accounts/tree`,
+      );
+      setAccountOptions(flattenPostableAccounts(res.data.tree));
+    } catch {
+      setAccountOptions([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [companyId]);
 
   useEffect(() => {
-    if (!company) return;
-    setLoadingAccounts(true);
-    apiFetch<{ data: { tree: AccountTreeNode[] } }>(`/companies/${company.id}/accounts/tree`)
-      .then((res) => setAccountOptions(flattenPostableAccounts(res.data.tree)))
-      .catch(() => setAccountOptions([]))
-      .finally(() => setLoadingAccounts(false));
-  }, [company]);
+    void loadAccounts();
+  }, [loadAccounts]);
 
   const totals = useMemo(
     () => ({
@@ -124,13 +138,13 @@ export function JournalFormPage(): JSX.Element {
   }
 
   function cancel(): void {
-    if (!company) return;
-    clearJournalDraft(company.id);
+    if (!companyId) return;
+    clearJournalDraft(companyId);
     router.push('/dashboard');
   }
 
   async function save(): Promise<void> {
-    if (!company) return;
+    if (!companyId) return;
     if (draft.lines.length < 2) {
       setError('Jurnal harus memiliki minimal 2 baris.');
       return;
@@ -147,7 +161,7 @@ export function JournalFormPage(): JSX.Element {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch(`/companies/${company.id}/journal-entries`, {
+      await apiFetch(`/companies/${companyId}/journal-entries`, {
         method: 'POST',
         body: {
           postingDate: draft.postingDate,
@@ -163,7 +177,7 @@ export function JournalFormPage(): JSX.Element {
           })),
         },
       });
-      clearJournalDraft(company.id);
+      clearJournalDraft(companyId);
       window.location.href = '/dashboard';
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Gagal menyimpan jurnal.');
@@ -172,7 +186,7 @@ export function JournalFormPage(): JSX.Element {
     }
   }
 
-  if (!company) {
+  if (!companyId) {
     return <p className="text-sm text-muted-foreground">Pilih klien terlebih dahulu.</p>;
   }
 
