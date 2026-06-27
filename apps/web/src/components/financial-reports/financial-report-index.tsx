@@ -4,7 +4,7 @@ const REPORT_LINKS = [
   { href: '/financial-reports/ledger', label: 'Buku Besar', enabled: true },
   { href: '/financial-reports/balance-sheet', label: 'Neraca', enabled: true },
   { href: '/financial-reports/trial-balance', label: 'Neraca Saldo', enabled: true },
-  { href: '#', label: 'Laporan Laba Rugi', enabled: false },
+  { href: '/financial-reports/income-statement', label: 'Laporan Laba Rugi', enabled: true },
 ] as const;
 
 export function FinancialReportIndex(): JSX.Element {
