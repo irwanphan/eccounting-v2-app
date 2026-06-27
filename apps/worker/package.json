@@ -5,8 +5,8 @@
   "description": "Eccounting v2 background worker (BullMQ processors)",
   "type": "commonjs",
   "scripts": {
-    "build": "nest build",
-    "dev": "nest start --watch",
+    "build": "rimraf dist *.tsbuildinfo && nest build",
+    "dev": "pnpm build && nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",

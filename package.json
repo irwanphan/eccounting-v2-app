@@ -10,7 +10,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=@eccounting/web --filter=@eccounting/api",
+    "dev:all": "turbo run dev",
+    "dev:stream": "TURBO_UI=stream turbo run dev --filter=@eccounting/web --filter=@eccounting/api",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
