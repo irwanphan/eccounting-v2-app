@@ -410,7 +410,14 @@ async function migrateCoa(
       );
 
       if (existing.rowCount) {
-        accountIdByV1CoaId.set(coa.id, BigInt(existing.rows[0]!.id));
+        const v2Id = BigInt(existing.rows[0]!.id);
+        accountIdByV1CoaId.set(coa.id, v2Id);
+        if (coa.category_id != null) {
+          await client.query(`UPDATE accounts SET sub_category = $1 WHERE id = $2`, [
+            String(coa.category_id),
+            v2Id.toString(),
+          ]);
+        }
         skipped++;
         continue;
       }
@@ -419,6 +426,7 @@ async function migrateCoa(
         coa.parent_id != null ? accountIdByV1CoaId.get(coa.parent_id) ?? null : null;
 
       const category = resolveCategory(coa);
+      const subCategory = coa.category_id != null ? String(coa.category_id) : null;
       const normalBalance = coa.is_debet ? 'D' : 'C';
       const isPostable = coa.is_last === 1;
       const isRetained = retainedCoaIds.has(coa.id);
@@ -426,11 +434,12 @@ async function migrateCoa(
       const ins = await client.query<{ id: string }>(
         `
         INSERT INTO accounts (
-          company_id, parent_id, code, name, category,
+          company_id, parent_id, code, name, category, sub_category,
           normal_balance, is_postable, is_retained_earning, legacy_v1_coa_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (company_id, code) DO UPDATE
-          SET legacy_v1_coa_id = EXCLUDED.legacy_v1_coa_id
+          SET legacy_v1_coa_id = EXCLUDED.legacy_v1_coa_id,
+              sub_category = EXCLUDED.sub_category
         RETURNING id::text
         `,
         [
@@ -439,6 +448,7 @@ async function migrateCoa(
           coa.code.trim(),
           coa.name.trim(),
           category,
+          subCategory,
           normalBalance,
           isPostable,
           isRetained,
