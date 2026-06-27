@@ -4,13 +4,29 @@
   "private": true,
   "description": "Drizzle ORM schema + raw SQL migrations runner untuk Eccounting v2",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts",
-    "./client": "./src/client.ts",
-    "./tenant": "./src/tenant.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./schema": {
+      "types": "./dist/src/schema/index.d.ts",
+      "import": "./dist/src/schema/index.js",
+      "default": "./dist/src/schema/index.js"
+    },
+    "./client": {
+      "types": "./dist/src/client.d.ts",
+      "import": "./dist/src/client.js",
+      "default": "./dist/src/client.js"
+    },
+    "./tenant": {
+      "types": "./dist/src/tenant.d.ts",
+      "import": "./dist/src/tenant.js",
+      "default": "./dist/src/tenant.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -21,6 +37,7 @@
     "seed": "tsx scripts/run-seeds.ts",
     "reset": "tsx scripts/reset-db.ts",
     "bootstrap-from-v1": "tsx scripts/bootstrap-from-v1.ts",
+    "set-dev-password": "tsx scripts/set-dev-password.ts",
     "studio": "drizzle-kit studio",
     "introspect": "drizzle-kit introspect"
   },
@@ -31,6 +48,7 @@
   },
   "devDependencies": {
     "@eccounting/config": "workspace:*",
+    "@node-rs/argon2": "^1.8.3",
     "@types/pg": "^8.11.10",
     "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
