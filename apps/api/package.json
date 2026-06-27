@@ -5,8 +5,8 @@
   "description": "Eccounting v2 REST API (NestJS + Fastify + Drizzle)",
   "type": "commonjs",
   "scripts": {
-    "build": "rimraf dist tsconfig.tsbuildinfo && nest build",
-    "dev": "nest start --watch",
+    "build": "rimraf dist *.tsbuildinfo && nest build",
+    "dev": "pnpm build && nest start --watch",
     "start": "node dist/main.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
