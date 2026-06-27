@@ -158,10 +158,10 @@ export function JournalListPage(): JSX.Element {
               onClick={loadDetail}
               disabled={loading}
               className={cn(
-                'rounded-md border border-border px-4 py-2 text-sm font-medium shadow-sm transition duration-300 cursor-pointer',
+                'rounded-md border border-slate-300 px-4 py-2 text-sm font-medium shadow-sm transition duration-300 cursor-pointer',
                 viewMode === 'detail'
-                  ? 'bg-slate-200 text-slate-800'
-                  : 'bg-muted text-muted-foreground hover:bg-slate-200',
+                  ? 'bg-slate-200 text-slate-800 hover:bg-slate-300 hover:border-slate-400'
+                  : 'bg-slate-200 text-slate-800',
               )}
             >
               Detil
