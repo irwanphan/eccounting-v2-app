@@ -12,7 +12,9 @@
  *  3. Insert firm 1 row (jika belum ada)
  *  4. Read v1.users → insert ke v2.users dengan password_hash_algo='bcrypt'
  *     (lazy migration: pada login pertama akan auto rehash ke argon2id)
- *  5. Print ringkasan
+ *  5. Read v1.client → insert ke v2.companies (legacy_v1_client_id)
+ *  6. Grant semua user firm membership accountant di setiap company
+ *  7. Print ringkasan
  *
  * Run:  pnpm db:bootstrap-from-v1 [--dry-run]
  *
@@ -45,6 +47,17 @@ interface V1User {
   name: string;
   password: string; // bcrypt $2y$...
   role_id: number | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
+
+interface V1Client {
+  id: number;
+  user_id: number | null;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
   created_at: Date | null;
   updated_at: Date | null;
 }
@@ -159,18 +172,132 @@ async function main(): Promise<void> {
       }
     }
 
+    // 4. Import clients → companies
+    const [clientRows] = await v1.execute<mysql.RowDataPacket[]>(
+      `SELECT id, user_id, name, address, phone, email, created_at, updated_at
+       FROM client
+       WHERE deleted_at IS NULL
+       ORDER BY id`,
+    );
+    const v1Clients = clientRows as unknown as V1Client[];
+    console.log();
+    console.log(`Found ${v1Clients.length} clients in v1.client (non-deleted)`);
+
+    let companiesInserted = 0;
+    let companiesUpdated = 0;
+    const companyIdByV1Id = new Map<number, bigint>();
+
+    for (const c of v1Clients) {
+      if (DRY_RUN) {
+        console.log(`  [dry-run] would upsert company: v1#${c.id} "${c.name}"`);
+        companyIdByV1Id.set(c.id, BigInt(c.id));
+        companiesInserted++;
+        continue;
+      }
+
+      const existing = await v2.query<{ id: string }>(
+        `SELECT id::text FROM eccounting.companies
+         WHERE firm_id = $1 AND legacy_v1_client_id = $2
+         LIMIT 1`,
+        [firmId.toString(), c.id],
+      );
+
+      if (existing.rowCount && existing.rowCount > 0) {
+        const companyId = BigInt(existing.rows[0]!.id);
+        await v2.query(
+          `UPDATE eccounting.companies
+           SET name = $3, address = $4, phone = $5, email = $6, updated_at = COALESCE($7, now())
+           WHERE id = $1 AND firm_id = $2`,
+          [
+            companyId.toString(),
+            firmId.toString(),
+            c.name.trim(),
+            c.address?.trim() || null,
+            c.phone?.trim() || null,
+            c.email?.trim().toLowerCase() || null,
+            c.updated_at,
+          ],
+        );
+        companyIdByV1Id.set(c.id, companyId);
+        companiesUpdated++;
+        continue;
+      }
+
+      const insertedCompany = await v2.query<{ id: string }>(
+        `
+        INSERT INTO eccounting.companies
+          (firm_id, name, address, phone, email, legacy_v1_client_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()), COALESCE($8, now()))
+        RETURNING id::text
+        `,
+        [
+          firmId.toString(),
+          c.name.trim(),
+          c.address?.trim() || null,
+          c.phone?.trim() || null,
+          c.email?.trim().toLowerCase() || null,
+          c.id,
+          c.created_at,
+          c.updated_at,
+        ],
+      );
+
+      const row = insertedCompany.rows[0];
+      if (!row) continue;
+      companyIdByV1Id.set(c.id, BigInt(row.id));
+      companiesInserted++;
+    }
+
+    // 5. Grant membership: semua user firm → accountant di setiap company
+    let membershipsInserted = 0;
+    if (v1Clients.length > 0) {
+      const firmUsers = DRY_RUN
+        ? v1Users.map((u) => ({ id: BigInt(u.id) }))
+        : (
+            await v2.query<{ id: string }>(
+              'SELECT id::text FROM eccounting.users WHERE firm_id = $1',
+              [firmId.toString()],
+            )
+          ).rows.map((r) => ({ id: BigInt(r.id) }));
+
+      for (const [, companyId] of companyIdByV1Id) {
+        for (const u of firmUsers) {
+          if (DRY_RUN) {
+            membershipsInserted++;
+            continue;
+          }
+          const mem = await v2.query(
+            `
+            INSERT INTO eccounting.company_members (company_id, user_id, role)
+            VALUES ($1, $2, 'accountant')
+            ON CONFLICT (company_id, user_id) DO NOTHING
+            RETURNING company_id
+            `,
+            [companyId.toString(), u.id.toString()],
+          );
+          if (mem.rowCount && mem.rowCount > 0) membershipsInserted++;
+        }
+      }
+    }
+
     console.log();
     console.log('=== Summary ===');
     console.log(`  Firm: "${FIRM_NAME}" (id=${firmId})`);
     console.log(`  Users inserted: ${inserted}`);
     console.log(`  Users skipped : ${skipped}`);
+    console.log(`  Companies inserted: ${companiesInserted}`);
+    console.log(`  Companies updated : ${companiesUpdated}`);
+    console.log(`  Memberships added : ${membershipsInserted}`);
 
     if (!DRY_RUN) {
-      const final = await v2.query<{ count: string }>(
-        'SELECT COUNT(*)::text FROM eccounting.users WHERE firm_id = $1',
+      const final = await v2.query<{ users: string; companies: string }>(
+        `SELECT
+           (SELECT COUNT(*)::text FROM eccounting.users WHERE firm_id = $1) AS users,
+           (SELECT COUNT(*)::text FROM eccounting.companies WHERE firm_id = $1 AND archived_at IS NULL) AS companies`,
         [firmId.toString()],
       );
-      console.log(`  Total users in firm: ${final.rows[0]!.count}`);
+      console.log(`  Total users in firm   : ${final.rows[0]!.users}`);
+      console.log(`  Total companies in firm: ${final.rows[0]!.companies}`);
     }
 
     console.log();
@@ -178,6 +305,7 @@ async function main(): Promise<void> {
     console.log('  - Pakai email + password lama dari v1 (bcrypt hash dimigrasikan as-is)');
     console.log('  - Pada login pertama, hash akan auto di-upgrade ke argon2id');
     console.log('  - Contoh admin: taxadmin@hiubanhin.tax');
+    console.log('  - Setelah login v2: pilih klien dari daftar (sama seperti v1 /admin/client)');
   } finally {
     await v1.end();
     await v2.end();
