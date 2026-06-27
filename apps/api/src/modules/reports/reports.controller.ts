@@ -64,4 +64,20 @@ export class ReportsController {
     const data = await this.reports.getTrialBalance(BigInt(companyId), month);
     return { data };
   }
+
+  @Get('income-statement')
+  @ApiOperation({
+    summary: 'Laporan Laba Rugi',
+    description: 'Filter rentang tanggal, setara v1 laba-rugi.detail_labarugi',
+  })
+  @ApiQuery({ name: 'dateStart', required: true, example: '2022-06-01' })
+  @ApiQuery({ name: 'dateEnd', required: true, example: '2026-06-30' })
+  async incomeStatement(
+    @Param('companyId') companyId: string,
+    @Query('dateStart') dateStart: string,
+    @Query('dateEnd') dateEnd: string,
+  ) {
+    const data = await this.reports.getIncomeStatement(BigInt(companyId), dateStart, dateEnd);
+    return { data };
+  }
 }

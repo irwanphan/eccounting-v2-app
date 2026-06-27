@@ -5,12 +5,18 @@ import type {
   AccountOption,
   BalanceSheetReport,
   GeneralLedgerReport,
+  IncomeStatementBlock,
+  IncomeStatementReport,
   TrialBalanceReport,
 } from '@eccounting/shared';
 import { and, asc, between, eq, inArray, lte, lt, sql } from 'drizzle-orm';
 
 import { DbService } from '../../infra/db/db.service';
 import { DEFAULT_BALANCE_SHEET_TEMPLATE } from './balance-sheet.template';
+import {
+  INCOME_STATEMENT_LAYOUT,
+  resolveV1IncomeCategory,
+} from './income-statement.template';
 
 /** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
 const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
@@ -328,6 +334,125 @@ export class ReportsService {
       totalDebit: totalDebit.toFixed(4),
       totalCredit: totalCredit.toFixed(4),
     };
+  }
+
+  /**
+   * Laporan Laba Rugi — setara v1 LabaRugiController::queryLabaRugi + report.blade.php.
+   * Filter rentang tanggal; nominal per akun = reverse × (debit − credit) dalam periode.
+   */
+  async getIncomeStatement(
+    companyId: bigint,
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<IncomeStatementReport> {
+    const accountRows = await this.db.db
+      .select({
+        id: accounts.id,
+        code: accounts.code,
+        name: accounts.name,
+        level: accounts.level,
+        category: accounts.category,
+        subCategory: accounts.subCategory,
+      })
+      .from(accounts)
+      .where(eq(accounts.companyId, companyId))
+      .orderBy(asc(accounts.code));
+
+    const periodSums = await this.sumAccountsInPeriod(
+      companyId,
+      PL_CATEGORIES,
+      dateStart,
+      dateEnd,
+    );
+    const sumByAccount = new Map(periodSums.map((row) => [row.accountId, row]));
+
+    const rawByV1Category = new Map<
+      number,
+      Array<{ code: string; name: string; rawSelisih: number }>
+    >();
+
+    for (const account of accountRows) {
+      if (account.level < 1) continue;
+
+      const v1Category = resolveV1IncomeCategory({
+        subCategory: account.subCategory,
+        category: account.category,
+        code: account.code,
+      });
+      if (v1Category == null) continue;
+
+      const sums = sumByAccount.get(account.id);
+      if (!sums) continue;
+
+      const rawSelisih = sums.totalDebit - sums.totalCredit;
+      if (rawSelisih === 0) continue;
+
+      const bucket = rawByV1Category.get(v1Category) ?? [];
+      bucket.push({
+        code: account.code,
+        name: account.name,
+        rawSelisih,
+      });
+      rawByV1Category.set(v1Category, bucket);
+    }
+
+    const totals: Record<string, number> = {
+      pendapatanUsaha: 0,
+      hpp: 0,
+      biayaUsaha: 0,
+      pendapatanLain: 0,
+      biayaLain: 0,
+      pajak: 0,
+    };
+
+    const blocks: IncomeStatementBlock[] = [];
+
+    for (const item of INCOME_STATEMENT_LAYOUT) {
+      if (item.type === 'heading') {
+        blocks.push({ kind: 'heading', label: item.label! });
+        continue;
+      }
+
+      if (item.type === 'table' && item.table && item.totalKey) {
+        const { title, v1Categories, reverseMultiplier } = item.table;
+        const rows: Array<{ code: string; name: string; amount: string }> = [];
+        let total = 0;
+
+        for (const v1Cat of v1Categories) {
+          const accountsInCat = rawByV1Category.get(v1Cat) ?? [];
+          for (const acc of accountsInCat) {
+            const nominal = reverseMultiplier * acc.rawSelisih;
+            if (nominal === 0) continue;
+            total += nominal;
+            rows.push({
+              code: acc.code,
+              name: acc.name,
+              amount: nominal.toFixed(4),
+            });
+          }
+        }
+
+        totals[item.totalKey] = total;
+        blocks.push({
+          kind: 'table',
+          title,
+          rows,
+          total: total.toFixed(4),
+        });
+        continue;
+      }
+
+      if (item.type === 'summary' && item.compute) {
+        const amount = item.compute(totals);
+        blocks.push({
+          kind: 'summary',
+          label: item.label!,
+          amount: amount.toFixed(4),
+        });
+      }
+    }
+
+    return { dateStart, dateEnd, blocks };
   }
 
   /** Setara v1: debet normal → kolom debet, kredit normal → kolom kredit. */
