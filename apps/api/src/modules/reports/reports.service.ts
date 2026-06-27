@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { accounts, journalEntries, journalLines } from '@eccounting/db';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { accounts, companies, journalEntries, journalLines } from '@eccounting/db';
 import type {
   AccountCategory,
   AccountOption,
@@ -17,6 +17,10 @@ import {
   INCOME_STATEMENT_LAYOUT,
   resolveV1IncomeCategory,
 } from './income-statement.template';
+import {
+  buildIncomeStatementExcel,
+  incomeStatementExportFilename,
+} from './income-statement.excel';
 
 /** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
 const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
@@ -453,6 +457,34 @@ export class ReportsService {
     }
 
     return { dateStart, dateEnd, blocks };
+  }
+
+  /** Setara v1 LabaRugiController::downloadExcel */
+  async exportIncomeStatementExcel(
+    companyId: bigint,
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const [company] = await this.db.db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+
+    if (!company) {
+      throw new NotFoundException('Perusahaan tidak ditemukan.');
+    }
+
+    const report = await this.getIncomeStatement(companyId, dateStart, dateEnd);
+    const buffer = await buildIncomeStatementExcel({
+      report,
+      companyName: company.name,
+    });
+
+    return {
+      buffer,
+      filename: incomeStatementExportFilename(dateStart, dateEnd),
+    };
   }
 
   /** Setara v1: debet normal → kolom debet, kredit normal → kolom kredit. */

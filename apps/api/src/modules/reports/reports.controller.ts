@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, StreamableFile, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Readable } from 'node:stream';
 
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CompanyMemberGuard } from '../../common/guards/company-member.guard';
@@ -79,5 +80,29 @@ export class ReportsController {
   ) {
     const data = await this.reports.getIncomeStatement(BigInt(companyId), dateStart, dateEnd);
     return { data };
+  }
+
+  @Get('income-statement/export')
+  @ApiOperation({
+    summary: 'Export Laporan Laba Rugi ke Excel',
+    description: 'Setara v1 financial-report.laba-rugi.download-excel',
+  })
+  @ApiQuery({ name: 'dateStart', required: true, example: '2022-06-01' })
+  @ApiQuery({ name: 'dateEnd', required: true, example: '2026-06-30' })
+  async exportIncomeStatement(
+    @Param('companyId') companyId: string,
+    @Query('dateStart') dateStart: string,
+    @Query('dateEnd') dateEnd: string,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.reports.exportIncomeStatementExcel(
+      BigInt(companyId),
+      dateStart,
+      dateEnd,
+    );
+
+    return new StreamableFile(Readable.from(buffer), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 }
