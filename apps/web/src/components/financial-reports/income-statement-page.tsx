@@ -4,7 +4,7 @@ import type { IncomeStatementReport } from '@eccounting/shared';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 
-import { ApiError, apiFetch } from '@/lib/api-client';
+import { ApiError, apiDownload, apiFetch } from '@/lib/api-client';
 import { getSelectedCompany } from '@/lib/company-store';
 import { defaultMonthDateRange, formatDisplayDate, formatIdrAmount } from '@/lib/format-idr';
 
@@ -12,24 +12,29 @@ interface IncomeStatementResponse {
   data: IncomeStatementReport;
 }
 
+function exportFilename(dateStart: string, dateEnd: string): string {
+  return `Laba Rugi (${dateStart} sd ${dateEnd}).xlsx`;
+}
+
 export function IncomeStatementPage(): JSX.Element {
-  const company = getSelectedCompany();
+  const companyId = getSelectedCompany()?.id;
   const defaults = defaultMonthDateRange();
 
   const [dateStart, setDateStart] = useState(defaults.dateStart);
   const [dateEnd, setDateEnd] = useState(defaults.dateEnd);
   const [report, setReport] = useState<IncomeStatementReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadReport(): Promise<void> {
-    if (!company) return;
+    if (!companyId) return;
     setLoading(true);
     setError(null);
     try {
       const qs = new URLSearchParams({ dateStart, dateEnd });
       const res = await apiFetch<IncomeStatementResponse>(
-        `/companies/${company.id}/reports/income-statement?${qs}`,
+        `/companies/${companyId}/reports/income-statement?${qs}`,
       );
       setReport(res.data);
     } catch (err) {
@@ -37,6 +42,23 @@ export function IncomeStatementPage(): JSX.Element {
       setError(err instanceof ApiError ? err.message : 'Gagal memuat laporan laba rugi');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function exportExcel(): Promise<void> {
+    if (!companyId) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams({ dateStart, dateEnd });
+      await apiDownload(
+        `/companies/${companyId}/reports/income-statement/export?${qs}`,
+        exportFilename(dateStart, dateEnd),
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Gagal mengunduh Excel');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -77,19 +99,19 @@ export function IncomeStatementPage(): JSX.Element {
           <button
             type="button"
             onClick={() => void loadReport()}
-            disabled={loading || !company}
+            disabled={loading || !companyId}
             className="rounded-md bg-sky-500 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-600 disabled:opacity-60"
           >
             {loading ? 'Memuat…' : 'Tampil'}
           </button>
           <button
             type="button"
-            disabled
-            title="Menyusul"
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white opacity-60"
+            onClick={() => void exportExcel()}
+            disabled={exporting || !companyId}
+            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
           >
             <Download className="h-4 w-4" />
-            Export .XLSX
+            {exporting ? 'Mengunduh…' : 'Export .XLSX'}
           </button>
         </div>
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
