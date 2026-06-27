@@ -39,6 +39,7 @@ export const journalEntries = eccountingSchema.table(
       (): AnyPgColumn => journalEntries.id,
     ),
     importBatchId: bigint('import_batch_id', { mode: 'bigint' }),
+    legacyV1GroupJournalId: bigint('legacy_v1_group_journal_id', { mode: 'bigint' }),
     createdBy: bigint('created_by', { mode: 'bigint' })
       .notNull()
       .references(() => users.id),

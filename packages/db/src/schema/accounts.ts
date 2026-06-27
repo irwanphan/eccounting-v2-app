@@ -53,6 +53,7 @@ export const accounts = eccountingSchema.table(
     level: smallint('level').notNull().default(0),
     path: ltree('path'),
     isRetainedEarning: boolean('is_retained_earning').notNull().default(false),
+    legacyV1CoaId: bigint('legacy_v1_coa_id', { mode: 'bigint' }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
