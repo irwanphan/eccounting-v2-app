@@ -18,13 +18,14 @@ interface NavItem {
 const FEATURE_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Jurnal' },
   { href: '/financial-reports', label: 'Laporan Keuangan' },
-  { href: '#', label: 'Kode Akun', disabled: true },
+  { href: '/accounts', label: 'Kode Akun' },
   { href: '#', label: 'Kas', disabled: true },
 ];
 
 function isNavActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
   if (href === '/financial-reports') return pathname.startsWith('/financial-reports');
+  if (href === '/accounts') return pathname.startsWith('/accounts');
   return pathname === href;
 }
 
