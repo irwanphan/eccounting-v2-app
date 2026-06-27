@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, X } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { getSelectedCompany } from '@/lib/company-store';
+import { SelectedCompanyBadge } from '@/components/selected-company-badge';
 import { logout } from '@/lib/logout';
 import { cn } from '@/lib/utils';
 
@@ -17,14 +17,22 @@ interface NavItem {
 
 const FEATURE_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Jurnal' },
-  { href: '#', label: 'Laporan Keuangan', disabled: true },
+  { href: '/financial-reports', label: 'Laporan Keuangan' },
   { href: '#', label: 'Kode Akun', disabled: true },
   { href: '#', label: 'Kas', disabled: true },
 ];
 
+function isNavActive(pathname: string, href: string): boolean {
+  if (href === '/dashboard') return pathname === '/dashboard';
+  if (href === '/financial-reports') return pathname.startsWith('/financial-reports');
+  return pathname === href;
+}
+
 interface DrawerLayoutProps {
   /** Judul halaman (uppercase di UI) */
   title: string;
+  /** Link kembali (setara v1 arrow_back_ios di page-title) */
+  backHref?: string;
   /** Tombol aksi di header (Import CSV, Baru, dll.) */
   headerActions?: ReactNode;
   children: ReactNode;
@@ -64,10 +72,14 @@ function DrawerNavItem({
   );
 }
 
-export function DrawerLayout({ title, headerActions, children }: DrawerLayoutProps): JSX.Element {
+export function DrawerLayout({
+  title,
+  backHref,
+  headerActions,
+  children,
+}: DrawerLayoutProps): JSX.Element {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const selected = getSelectedCompany();
 
   function closeDrawer(): void {
     setOpen(false);
@@ -75,6 +87,7 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-sky-200">
+      <SelectedCompanyBadge />
       {/* Toggle — kuning bulat, setara v1 label[for=drawer] */}
       <button
         type="button"
@@ -110,7 +123,7 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
           <DrawerNavItem
             key={item.label}
             item={item}
-            active={pathname === item.href}
+            active={isNavActive(pathname, item.href)}
             onNavigate={closeDrawer}
           />
         ))}
@@ -121,7 +134,7 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
           <DrawerNavItem
             key={item.label}
             item={item}
-            active={pathname === item.href}
+            active={isNavActive(pathname, item.href)}
             onNavigate={closeDrawer}
           />
         ))}
@@ -149,11 +162,19 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
       >
         {/* Page header — setara v1 page_header */}
         <header className="flex flex-wrap items-center gap-3 px-6 pb-4 pt-6">
-          <h1 className="text-lg font-semibold uppercase tracking-wide text-slate-700">{title}</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold uppercase tracking-wide text-slate-700">
+            {backHref && (
+              <Link
+                href={backHref}
+                className="inline-flex rounded-md p-1 text-slate-600 transition hover:bg-white/60 hover:text-slate-900"
+                aria-label="Kembali"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Link>
+            )}
+            {title}
+          </h1>
           {headerActions}
-          <div className="ml-auto flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm shadow-sm">
-            <span className="font-medium">{selected?.name ?? '—'}</span>
-          </div>
         </header>
 
         <main className="px-6 pb-8">{children}</main>
