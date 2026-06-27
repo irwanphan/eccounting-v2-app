@@ -45,49 +45,57 @@ export function LoginForm(): JSX.Element {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
-            errors.email && 'border-destructive focus:ring-destructive',
-          )}
-          {...register('email')}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        Masuk di bawah ini
+      </p>
 
-      <div className="space-y-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
-            errors.password && 'border-destructive focus:ring-destructive',
+      <div className="space-y-5">
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="text-xs font-medium text-slate-500">
+            E-mail
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="E-mail"
+            className={cn(
+              'w-full border-0 border-b border-slate-300 bg-transparent px-0 py-2 text-sm text-slate-900',
+              'placeholder:text-slate-400 focus:border-[#22A7F0] focus:outline-none focus:ring-0',
+              errors.email && 'border-destructive focus:border-destructive',
+            )}
+            {...register('email')}
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive">{errors.email.message}</p>
           )}
-          {...register('password')}
-        />
-        {errors.password && (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
-        )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="text-xs font-medium text-slate-500">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            className={cn(
+              'w-full border-0 border-b border-slate-300 bg-transparent px-0 py-2 text-sm text-slate-900',
+              'placeholder:text-slate-400 focus:border-[#22A7F0] focus:outline-none focus:ring-0',
+              errors.password && 'border-destructive focus:border-destructive',
+            )}
+            {...register('password')}
+          />
+          {errors.password && (
+            <p className="text-xs text-destructive">{errors.password.message}</p>
+          )}
+        </div>
       </div>
 
       {serverError && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {serverError}
         </div>
       )}
@@ -96,14 +104,15 @@ export function LoginForm(): JSX.Element {
         type="submit"
         disabled={isSubmitting}
         className={cn(
-          'w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm',
-          'transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50',
+          'inline-flex min-w-[9rem] items-center justify-center rounded-sm bg-[#22A7F0] px-6 py-2.5',
+          'text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-sm',
+          'transition hover:bg-[#1a96db] disabled:cursor-not-allowed disabled:opacity-60',
         )}
       >
-        {isSubmitting ? 'Memproses…' : 'Masuk'}
+        {isSubmitting ? 'Memproses…' : 'Login'}
       </button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-xs text-slate-400">
         Tidak punya akun? Hubungi admin firma kamu.
       </p>
     </form>
