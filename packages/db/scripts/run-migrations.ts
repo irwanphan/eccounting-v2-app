@@ -11,18 +11,22 @@
  *   pnpm db:migrate -- --dry-run             # preview tanpa eksekusi
  *   pnpm db:migrate -- --to=0005             # jalankan sampai 0005 saja
  */
-import 'dotenv/config';
-
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { config as loadEnv } from 'dotenv';
 import { Client } from 'pg';
 
 const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '../../..');
 const MIGRATIONS_DIR = resolve(REPO_ROOT, 'migrations');
+
+// Load .env dari repo root, bukan dari packages/db (CWD saat pnpm --filter)
+const ROOT_ENV = resolve(REPO_ROOT, '.env');
+if (existsSync(ROOT_ENV)) loadEnv({ path: ROOT_ENV });
 
 interface CliArgs {
   dryRun: boolean;

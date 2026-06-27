@@ -10,17 +10,21 @@
  *   pnpm db:seed
  *   pnpm db:seed -- --bootstrap-demo        # buat firm/company demo + run seed_default_coa
  */
-import 'dotenv/config';
-
+import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { config as loadEnv } from 'dotenv';
 import { Client } from 'pg';
 
 const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '../../..');
 const SEEDS_DIR = resolve(REPO_ROOT, 'seeds');
+
+// Load .env dari repo root, bukan dari packages/db (CWD saat pnpm --filter)
+const ROOT_ENV = resolve(REPO_ROOT, '.env');
+if (existsSync(ROOT_ENV)) loadEnv({ path: ROOT_ENV });
 
 async function main(): Promise<void> {
   const url =

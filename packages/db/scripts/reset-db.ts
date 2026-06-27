@@ -10,13 +10,20 @@
  *   pnpm db:reset -- --yes                   # skip konfirmasi
  *   pnpm db:reset -- --yes --then-migrate    # langsung run migrations setelahnya
  */
-import 'dotenv/config';
-
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
+import { config as loadEnv } from 'dotenv';
 import { Client } from 'pg';
+
+const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
+const REPO_ROOT = resolve(SCRIPT_DIR, '../../..');
+const ROOT_ENV = resolve(REPO_ROOT, '.env');
+if (existsSync(ROOT_ENV)) loadEnv({ path: ROOT_ENV });
 
 async function confirm(message: string): Promise<boolean> {
   const rl = createInterface({ input: stdin, output: stdout });
