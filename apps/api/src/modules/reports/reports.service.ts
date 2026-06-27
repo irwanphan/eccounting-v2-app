@@ -29,6 +29,10 @@ import {
   buildBalanceSheetExcel,
   balanceSheetExportFilename,
 } from './balance-sheet.excel';
+import {
+  buildGeneralLedgerExcel,
+  generalLedgerExportFilename,
+} from './general-ledger.excel';
 
 /** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
 const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
@@ -201,6 +205,39 @@ export class ReportsService {
       closingBalance: running.toFixed(4),
       retainedEarningsInPeriod,
       lines,
+    };
+  }
+
+  /** Setara v1 LedgerController::exportExcel */
+  async exportGeneralLedgerExcel(
+    companyId: bigint,
+    accountId: bigint,
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const [company] = await this.db.db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+
+    if (!company) {
+      throw new NotFoundException('Perusahaan tidak ditemukan.');
+    }
+
+    const report = await this.getGeneralLedger(companyId, accountId, dateStart, dateEnd);
+    if (!report) {
+      throw new NotFoundException('Kode akun tidak ditemukan.');
+    }
+
+    const buffer = await buildGeneralLedgerExcel({
+      report,
+      companyName: company.name,
+    });
+
+    return {
+      buffer,
+      filename: generalLedgerExportFilename(report),
     };
   }
 

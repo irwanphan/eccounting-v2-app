@@ -8,7 +8,7 @@ import {
   SearchableSelect,
   type SearchableSelectOption,
 } from '@/components/ui/searchable-select';
-import { ApiError, apiFetch } from '@/lib/api-client';
+import { ApiError, apiDownload, apiFetch } from '@/lib/api-client';
 import { getSelectedCompany } from '@/lib/company-store';
 import { defaultMonthDateRange, formatDisplayDate, formatIdrAmount } from '@/lib/format-idr';
 
@@ -30,7 +30,7 @@ function toAccountOptions(accounts: AccountOption[]): SearchableSelectOption[] {
 }
 
 export function GeneralLedgerPage(): JSX.Element {
-  const company = getSelectedCompany();
+  const companyId = getSelectedCompany()?.id;
   const defaults = defaultMonthDateRange();
 
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
@@ -41,17 +41,18 @@ export function GeneralLedgerPage(): JSX.Element {
   const [dateEnd, setDateEnd] = useState(defaults.dateEnd);
   const [report, setReport] = useState<GeneralLedgerReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!company?.id) return;
+    if (!companyId) return;
     void (async () => {
       setAccountsLoading(true);
       setAccountsError(null);
       try {
         const res = await apiFetch<AccountsResponse>(
-          `/companies/${company.id}/reports/accounts`,
-          { companyId: company.id },
+          `/companies/${companyId}/reports/accounts`,
+          { companyId },
         );
         setAccounts(res.data);
         if (res.data[0]) setAccountId(res.data[0].id);
@@ -67,18 +68,18 @@ export function GeneralLedgerPage(): JSX.Element {
         setAccountsLoading(false);
       }
     })();
-  }, [company?.id]);
+  }, [companyId]);
 
   const accountOptions = useMemo(() => toAccountOptions(accounts), [accounts]);
 
   async function loadReport(): Promise<void> {
-    if (!company || !accountId) return;
+    if (!companyId || !accountId) return;
     setLoading(true);
     setError(null);
     try {
       const qs = new URLSearchParams({ accountId, dateStart, dateEnd });
       const res = await apiFetch<LedgerResponse>(
-        `/companies/${company.id}/reports/general-ledger?${qs}`,
+        `/companies/${companyId}/reports/general-ledger?${qs}`,
       );
       setReport(res.data);
     } catch (err) {
@@ -89,70 +90,89 @@ export function GeneralLedgerPage(): JSX.Element {
     }
   }
 
+  async function exportExcel(): Promise<void> {
+    if (!companyId || !accountId) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const selected = accounts.find((a) => a.id === accountId);
+      const qs = new URLSearchParams({ accountId, dateStart, dateEnd });
+      const fallbackName = selected
+        ? `Buku Besar (${selected.code}-${selected.name}) ${dateStart} sd ${dateEnd}.xlsx`
+        : `Buku Besar ${dateStart} sd ${dateEnd}.xlsx`;
+      await apiDownload(
+        `/companies/${companyId}/reports/general-ledger/export?${qs}`,
+        fallbackName,
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Gagal mengunduh Excel');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
-    <>
-      <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-1">
-            <SearchableSelect
-              label="Kode Akun"
-              options={accountOptions}
-              value={accountId}
-              onChange={setAccountId}
-              loading={accountsLoading}
-              disabled={accounts.length === 0 && !accountsLoading}
-              placeholder="Pilih akun…"
-              searchPlaceholder="Cari kode atau nama akun…"
-              emptyMessage="— belum ada akun —"
-              noResultsMessage="Akun tidak ditemukan"
+    <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-1">
+          <SearchableSelect
+            label="Kode Akun"
+            options={accountOptions}
+            value={accountId}
+            onChange={setAccountId}
+            loading={accountsLoading}
+            disabled={accounts.length === 0 && !accountsLoading}
+            placeholder="Pilih akun…"
+            searchPlaceholder="Cari kode atau nama akun…"
+            emptyMessage="— belum ada akun —"
+            noResultsMessage="Akun tidak ditemukan"
+          />
+          {accountsError && (
+            <p className="text-xs text-destructive">{accountsError}</p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">Tanggal</span>
+            <input
+              type="date"
+              value={dateStart}
+              onChange={(e) => setDateStart(e.target.value)}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
             />
-            {accountsError && (
-              <p className="text-xs text-destructive">{accountsError}</p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="space-y-1">
-              <span className="text-xs text-muted-foreground">Tanggal</span>
-              <input
-                type="date"
-                value={dateStart}
-                onChange={(e) => setDateStart(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
-              />
-            </label>
-            <span className="pb-2 text-sm text-muted-foreground">sampai dengan</span>
-            <label className="space-y-1">
-              <span className="text-xs text-muted-foreground">&nbsp;</span>
-              <input
-                type="date"
-                value={dateEnd}
-                onChange={(e) => setDateEnd(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
-              />
-            </label>
-          </div>
+          </label>
+          <span className="pb-2 text-sm text-muted-foreground">sampai dengan</span>
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">&nbsp;</span>
+            <input
+              type="date"
+              value={dateEnd}
+              onChange={(e) => setDateEnd(e.target.value)}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+            />
+          </label>
         </div>
+      </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={loadReport}
-            disabled={loading || !accountId}
-            className="rounded-md bg-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-600 disabled:opacity-60 transition duration-300"
-          >
-            Tampil
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Menyusul"
-            className="inline-flex cursor-not-allowed items-center gap-2 rounded-md bg-green-500 px-5 py-2.5 text-sm font-medium text-white opacity-60 shadow-sm transition duration-300"
-          >
-            <Download className="h-4 w-4" />
-            Export .XLSX
-          </button>
-        </div>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={loadReport}
+          disabled={loading || !accountId}
+          className="rounded-md bg-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-600 disabled:opacity-60 transition duration-300 cursor-pointer"
+        >
+          Tampil
+        </button>
+        <button
+          type="button"
+          onClick={() => void exportExcel()}
+          disabled={exporting || !accountId || !companyId}
+          className="inline-flex items-center gap-2 rounded-md bg-green-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-green-600 disabled:opacity-60 transition duration-300 cursor-pointer"
+        >
+          <Download className="h-4 w-4" />
+          {exporting ? 'Mengunduh…' : 'Export .XLSX'}
+        </button>
       </div>
 
       {error && (
@@ -162,7 +182,7 @@ export function GeneralLedgerPage(): JSX.Element {
       )}
 
       {report && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-white p-4 shadow-sm">
+        <div className="mt-6 overflow-x-auto rounded-lg border border-sky-300 p-2 bg-white shadow-sm">
           <p className="mb-4 text-sm text-muted-foreground">
             {report.account.code} — {report.account.name} · {formatDisplayDate(report.dateStart)} s/d{' '}
             {formatDisplayDate(report.dateEnd)}
@@ -225,6 +245,7 @@ export function GeneralLedgerPage(): JSX.Element {
           )}
         </div>
       )}
-    </>
+
+    </div>
   );
 }

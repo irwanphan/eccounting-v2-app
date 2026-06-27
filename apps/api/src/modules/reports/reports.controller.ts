@@ -44,6 +44,33 @@ export class ReportsController {
     return { data };
   }
 
+  @Get('general-ledger/export')
+  @ApiOperation({
+    summary: 'Export Buku Besar ke Excel',
+    description: 'Setara v1 ledger.export-excel',
+  })
+  @ApiQuery({ name: 'accountId', required: true })
+  @ApiQuery({ name: 'dateStart', required: true, example: '2023-06-01' })
+  @ApiQuery({ name: 'dateEnd', required: true, example: '2023-06-30' })
+  async exportGeneralLedger(
+    @Param('companyId') companyId: string,
+    @Query('accountId') accountId: string,
+    @Query('dateStart') dateStart: string,
+    @Query('dateEnd') dateEnd: string,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.reports.exportGeneralLedgerExcel(
+      BigInt(companyId),
+      BigInt(accountId),
+      dateStart,
+      dateEnd,
+    );
+
+    return new StreamableFile(Readable.from(buffer), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   @Get('balance-sheet')
   @ApiOperation({
     summary: 'Laporan Neraca',
