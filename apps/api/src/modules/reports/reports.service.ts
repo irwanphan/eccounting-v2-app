@@ -25,6 +25,10 @@ import {
   buildTrialBalanceExcel,
   trialBalanceExportFilename,
 } from './trial-balance.excel';
+import {
+  buildBalanceSheetExcel,
+  balanceSheetExportFilename,
+} from './balance-sheet.excel';
 
 /** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
 const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
@@ -515,6 +519,33 @@ export class ReportsService {
     return {
       buffer,
       filename: trialBalanceExportFilename(month),
+    };
+  }
+
+  /** Setara v1 BalanceSheetExportHandler + BalanceSheetExport */
+  async exportBalanceSheetExcel(
+    companyId: bigint,
+    month: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const [company] = await this.db.db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+
+    if (!company) {
+      throw new NotFoundException('Perusahaan tidak ditemukan.');
+    }
+
+    const report = await this.getBalanceSheet(companyId, month);
+    const buffer = await buildBalanceSheetExcel({
+      report,
+      companyName: company.name,
+    });
+
+    return {
+      buffer,
+      filename: balanceSheetExportFilename(report.dateStart, report.dateEnd),
     };
   }
 

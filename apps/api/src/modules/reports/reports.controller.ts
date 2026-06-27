@@ -55,6 +55,27 @@ export class ReportsController {
     return { data };
   }
 
+  @Get('balance-sheet/export')
+  @ApiOperation({
+    summary: 'Export Neraca ke Excel',
+    description: 'Setara v1 financial-report.balance-sheet.download-excel',
+  })
+  @ApiQuery({ name: 'month', required: true, example: '2025-01' })
+  async exportBalanceSheet(
+    @Param('companyId') companyId: string,
+    @Query('month') month: string,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.reports.exportBalanceSheetExcel(
+      BigInt(companyId),
+      month,
+    );
+
+    return new StreamableFile(Readable.from(buffer), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   @Get('trial-balance')
   @ApiOperation({
     summary: 'Laporan Neraca Saldo',
