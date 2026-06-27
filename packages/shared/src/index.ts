@@ -1,3 +1,4 @@
 export * from './schemas/index.js';
+export * from './constants/coa-categories.js';
 export * from './types/index.js';
 export * from './errors/index.js';
