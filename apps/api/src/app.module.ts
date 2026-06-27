@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { FirmsModule } from './modules/firms/firms.module';
 import { HealthModule } from './modules/health/health.module';
+import { JournalsModule } from './modules/journals/journals.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     FirmsModule,
     CompaniesModule,
+    JournalsModule,
     HealthModule,
   ],
   providers: [

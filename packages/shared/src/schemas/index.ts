@@ -6,5 +6,6 @@ export * from './company.js';
 export * from './account.js';
 export * from './period.js';
 export * from './journal-entry.js';
+export * from './journal-list.js';
 export * from './import-batch.js';
 export * from './pagination.js';
