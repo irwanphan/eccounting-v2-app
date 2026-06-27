@@ -22,8 +22,6 @@ const FEATURE_NAV: NavItem[] = [
   { href: '#', label: 'Kas', disabled: true },
 ];
 
-const ADMIN_NAV: NavItem[] = [{ href: '/companies', label: 'Klien' }];
-
 interface DrawerLayoutProps {
   /** Judul halaman (uppercase di UI) */
   title: string;
@@ -32,11 +30,26 @@ interface DrawerLayoutProps {
   children: ReactNode;
 }
 
-function DrawerNavItem({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate: () => void }): JSX.Element {
+const ADMIN_NAV: NavItem[] = [
+  { href: '/companies', label: 'Klien' },
+  { href: '#', label: 'Pengguna', disabled: true },
+];
+
+/** v1: .nav-item { display: table } — lebar mengikuti teks, tepi kanan tidak sejajar */
+function DrawerNavItem({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate: () => void;
+}): JSX.Element {
   const className = cn(
-    'mb-1 block border-r-8 border-[#8ec5fb] bg-[#44a0f8] px-4 py-2.5 text-base font-normal capitalize text-white shadow-md transition',
-    'hover:border-[#ffd41a] focus:border-[#ffd41a]',
-    item.disabled && 'cursor-not-allowed opacity-50 hover:border-[#8ec5fb]',
+    'mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-[#8ec5fb] bg-[#44a0f8] py-0 pl-6 pr-4',
+    'text-base font-normal capitalize leading-[44px] text-white shadow-md transition duration-300',
+    'hover:border-[#ffd41a] focus:border-[#ffd41a] active:border-[#ffde4d]',
+    item.disabled && 'cursor-not-allowed opacity-80 hover:border-[#8ec5fb]',
     active && 'border-[#ffd41a]',
   );
 
@@ -86,11 +99,11 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
         />
       )}
 
-      {/* Nav drawer — hidden until toggle */}
+      {/* Nav drawer — hidden until toggle; items-start = lebar per teks seperti v1 */}
       <nav
         className={cn(
-          'fixed left-0 top-24 z-[77] w-56 transition-all duration-300',
-          open ? 'translate-x-4 opacity-100' : '-translate-x-full opacity-0 pointer-events-none',
+          'fixed z-[77] flex flex-col items-start transition-all duration-300',
+          open ? 'left-0 top-24 translate-x-0 opacity-100' : 'pointer-events-none left-0 top-24 -translate-x-full opacity-0',
         )}
       >
         {FEATURE_NAV.map((item) => (
@@ -101,26 +114,30 @@ export function DrawerLayout({ title, headerActions, children }: DrawerLayoutPro
             onNavigate={closeDrawer}
           />
         ))}
-        <div className="mt-4">
-          {ADMIN_NAV.map((item) => (
-            <DrawerNavItem
-              key={item.label}
-              item={item}
-              active={pathname === item.href}
-              onNavigate={closeDrawer}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              closeDrawer();
-              logout();
-            }}
-            className="mb-1 block w-full border-r-8 border-[#8ec5fb] bg-[#44a0f8] px-4 py-2.5 text-left text-base font-normal capitalize text-white shadow-md transition hover:border-[#ffd41a]"
-          >
-            Logout
-          </button>
-        </div>
+
+        <div className="my-3 h-px w-8 bg-white/30" aria-hidden />
+
+        {ADMIN_NAV.map((item) => (
+          <DrawerNavItem
+            key={item.label}
+            item={item}
+            active={pathname === item.href}
+            onNavigate={closeDrawer}
+          />
+        ))}
+
+        <div className="my-3 h-px w-8 bg-white/30" aria-hidden />
+
+        <button
+          type="button"
+          onClick={() => {
+            closeDrawer();
+            logout();
+          }}
+          className="mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-[#8ec5fb] bg-[#44a0f8] py-0 pl-6 pr-4 text-left text-base font-normal capitalize leading-[44px] text-white shadow-md transition hover:border-[#ffd41a] focus:border-[#ffd41a] active:border-[#ffde4d]"
+        >
+          Logout
+        </button>
       </nav>
 
       {/* Main content — geser saat drawer terbuka (setara v1) */}
