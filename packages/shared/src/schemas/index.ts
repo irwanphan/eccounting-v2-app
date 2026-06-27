@@ -10,5 +10,6 @@ export * from './journal-list.js';
 export * from './general-ledger.js';
 export * from './balance-sheet.js';
 export * from './trial-balance.js';
+export * from './income-statement.js';
 export * from './import-batch.js';
 export * from './pagination.js';
