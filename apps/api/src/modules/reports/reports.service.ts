@@ -5,6 +5,7 @@ import type {
   AccountOption,
   BalanceSheetReport,
   GeneralLedgerReport,
+  TrialBalanceReport,
 } from '@eccounting/shared';
 import { and, asc, between, eq, inArray, lte, lt, sql } from 'drizzle-orm';
 
@@ -18,6 +19,24 @@ const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
 const EXPENSE_CATEGORIES: AccountCategory[] = ['COGS', 'EXPENSE', 'OTHER_EXPENSE', 'TAX_EXPENSE'];
 
 const PL_CATEGORIES: AccountCategory[] = [...REVENUE_CATEGORIES, ...EXPENSE_CATEGORIES];
+
+/** Akun neraca — saldo kumulatif (setara v1 category_id IS NULL) */
+const BALANCE_SHEET_CATEGORIES: AccountCategory[] = ['ASSET', 'LIABILITY', 'EQUITY'];
+
+interface AccountRow {
+  id: bigint;
+  parentId: bigint | null;
+  code: string;
+  name: string;
+  level: number;
+  normalBalance: 'D' | 'C';
+  category: AccountCategory;
+  isRetainedEarning: boolean;
+}
+
+interface AccountTreeNode extends AccountRow {
+  children: AccountTreeNode[];
+}
 
 @Injectable()
 export class ReportsService {
@@ -224,6 +243,169 @@ export class ReportsService {
     return { month, dateStart, dateEnd, sections };
   }
 
+  async getTrialBalance(companyId: bigint, month: string): Promise<TrialBalanceReport> {
+    const { dateStart, dateEnd } = parseMonthRange(month);
+    const previousMonthEnd = endOfPreviousMonth(dateStart);
+
+    const accountRows = await this.db.db
+      .select({
+        id: accounts.id,
+        parentId: accounts.parentId,
+        code: accounts.code,
+        name: accounts.name,
+        level: accounts.level,
+        normalBalance: accounts.normalBalance,
+        category: accounts.category,
+        isRetainedEarning: accounts.isRetainedEarning,
+      })
+      .from(accounts)
+      .where(eq(accounts.companyId, companyId))
+      .orderBy(asc(accounts.code));
+
+    const balances = new Map<bigint, { debit: number; credit: number }>();
+    for (const acc of accountRows) {
+      balances.set(acc.id, { debit: 0, credit: 0 });
+    }
+
+    const accountById = new Map(accountRows.map((a) => [a.id, a]));
+
+    const cumulativeSums = await this.sumAccountsThroughDate(
+      companyId,
+      BALANCE_SHEET_CATEGORIES,
+      dateEnd,
+    );
+    for (const row of cumulativeSums) {
+      const account = accountById.get(row.accountId);
+      if (!account) continue;
+      this.applyTrialBalanceAmount(balances, account, row.totalDebit, row.totalCredit);
+    }
+
+    const lrpbAccount = accountRows.find((a) => a.isRetainedEarning);
+    if (lrpbAccount) {
+      const pendapatan = await this.sumCategoryTotals(companyId, REVENUE_CATEGORIES, {
+        through: previousMonthEnd,
+      });
+      const biaya = await this.sumCategoryTotals(companyId, EXPENSE_CATEGORIES, {
+        through: previousMonthEnd,
+      });
+
+      const entry = balances.get(lrpbAccount.id)!;
+      if (lrpbAccount.normalBalance === 'D') {
+        entry.debit +=
+          Number(pendapatan.totalDebit) +
+          Number(biaya.totalDebit) -
+          (Number(pendapatan.totalCredit) + Number(biaya.totalCredit));
+      } else {
+        entry.credit +=
+          Number(pendapatan.totalCredit) +
+          Number(biaya.totalCredit) -
+          (Number(pendapatan.totalDebit) + Number(biaya.totalDebit));
+      }
+    }
+
+    const periodSums = await this.sumAccountsInPeriod(companyId, PL_CATEGORIES, dateStart, dateEnd);
+    for (const row of periodSums) {
+      const account = accountById.get(row.accountId);
+      if (!account) continue;
+      this.applyTrialBalanceAmount(balances, account, row.totalDebit, row.totalCredit);
+    }
+
+    const tree = buildAccountTree(accountRows);
+    const rows = flattenAccountTree(tree, balances);
+
+    let totalDebit = 0;
+    let totalCredit = 0;
+    for (const row of rows) {
+      totalDebit += Number(row.debit);
+      totalCredit += Number(row.credit);
+    }
+
+    return {
+      month,
+      dateStart,
+      dateEnd,
+      rows,
+      totalDebit: totalDebit.toFixed(4),
+      totalCredit: totalCredit.toFixed(4),
+    };
+  }
+
+  /** Setara v1: debet normal → kolom debet, kredit normal → kolom kredit. */
+  private applyTrialBalanceAmount(
+    balances: Map<bigint, { debit: number; credit: number }>,
+    account: Pick<AccountRow, 'id' | 'normalBalance'>,
+    totalDebit: number,
+    totalCredit: number,
+  ): void {
+    const entry = balances.get(account.id)!;
+    if (account.normalBalance === 'D') {
+      entry.debit += totalDebit - totalCredit;
+    } else {
+      entry.credit += totalCredit - totalDebit;
+    }
+  }
+
+  private async sumAccountsThroughDate(
+    companyId: bigint,
+    categories: AccountCategory[],
+    dateEnd: string,
+  ): Promise<Array<{ accountId: bigint; totalDebit: number; totalCredit: number }>> {
+    const rows = await this.db.db
+      .select({
+        accountId: journalLines.accountId,
+        totalDebit: sql<string>`COALESCE(SUM(${journalLines.debit}), 0)::text`.as('total_debit'),
+        totalCredit: sql<string>`COALESCE(SUM(${journalLines.credit}), 0)::text`.as('total_credit'),
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.journalEntryId))
+      .innerJoin(accounts, eq(accounts.id, journalLines.accountId))
+      .where(
+        and(
+          eq(journalLines.companyId, companyId),
+          inArray(accounts.category, categories),
+          lte(journalEntries.transactionDate, dateEnd),
+        ),
+      )
+      .groupBy(journalLines.accountId);
+
+    return rows.map((r) => ({
+      accountId: r.accountId,
+      totalDebit: Number(r.totalDebit),
+      totalCredit: Number(r.totalCredit),
+    }));
+  }
+
+  private async sumAccountsInPeriod(
+    companyId: bigint,
+    categories: AccountCategory[],
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<Array<{ accountId: bigint; totalDebit: number; totalCredit: number }>> {
+    const rows = await this.db.db
+      .select({
+        accountId: journalLines.accountId,
+        totalDebit: sql<string>`COALESCE(SUM(${journalLines.debit}), 0)::text`.as('total_debit'),
+        totalCredit: sql<string>`COALESCE(SUM(${journalLines.credit}), 0)::text`.as('total_credit'),
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.journalEntryId))
+      .innerJoin(accounts, eq(accounts.id, journalLines.accountId))
+      .where(
+        and(
+          eq(journalLines.companyId, companyId),
+          inArray(accounts.category, categories),
+          between(journalEntries.transactionDate, dateStart, dateEnd),
+        ),
+      )
+      .groupBy(journalLines.accountId);
+
+    return rows.map((r) => ({
+      accountId: r.accountId,
+      totalDebit: Number(r.totalDebit),
+      totalCredit: Number(r.totalCredit),
+    }));
+  }
+
   /**
    * Saldo kumulatif per akun (debit/credit ter-rollup ke parent) sampai dateEnd.
    * Setara v1 BalanceSheetController::queryBalanceSheet + getTreeTotalNominal.
@@ -383,4 +565,61 @@ function parseMonthRange(month: string): { dateStart: string; dateEnd: string } 
   const lastDay = new Date(year, mon, 0).getDate();
   const dateEnd = `${match[1]}-${match[2]}-${String(lastDay).padStart(2, '0')}`;
   return { dateStart, dateEnd };
+}
+
+function endOfPreviousMonth(dateStart: string): string {
+  const d = new Date(`${dateStart}T12:00:00`);
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function buildAccountTree(rows: AccountRow[]): AccountTreeNode[] {
+  const nodes = new Map<bigint, AccountTreeNode>();
+  for (const row of rows) {
+    nodes.set(row.id, { ...row, children: [] });
+  }
+
+  const roots: AccountTreeNode[] = [];
+  for (const node of nodes.values()) {
+    if (node.parentId != null && nodes.has(node.parentId)) {
+      nodes.get(node.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const sortNodes = (list: AccountTreeNode[]): void => {
+    list.sort((a, b) => a.code.localeCompare(b.code));
+    for (const n of list) sortNodes(n.children);
+  };
+  sortNodes(roots);
+  return roots;
+}
+
+function flattenAccountTree(
+  nodes: AccountTreeNode[],
+  balances: Map<bigint, { debit: number; credit: number }>,
+): TrialBalanceReport['rows'] {
+  const rows: TrialBalanceReport['rows'] = [];
+
+  const walk = (list: AccountTreeNode[]): void => {
+    for (const node of list) {
+      const bal = balances.get(node.id) ?? { debit: 0, credit: 0 };
+      rows.push({
+        id: String(node.id),
+        code: node.code,
+        name: node.name,
+        level: node.level,
+        debit: bal.debit.toFixed(4),
+        credit: bal.credit.toFixed(4),
+      });
+      if (node.children.length > 0) walk(node.children);
+    }
+  };
+
+  walk(nodes);
+  return rows;
 }

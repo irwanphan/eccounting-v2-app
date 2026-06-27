@@ -53,4 +53,15 @@ export class ReportsController {
     const data = await this.reports.getBalanceSheet(BigInt(companyId), month);
     return { data };
   }
+
+  @Get('trial-balance')
+  @ApiOperation({
+    summary: 'Laporan Neraca Saldo',
+    description: 'Filter per bulan (YYYY-MM), setara v1 balance.getData',
+  })
+  @ApiQuery({ name: 'month', required: true, example: '2025-01' })
+  async trialBalance(@Param('companyId') companyId: string, @Query('month') month: string) {
+    const data = await this.reports.getTrialBalance(BigInt(companyId), month);
+    return { data };
+  }
 }
