@@ -26,6 +26,8 @@ export function GeneralLedgerPage(): JSX.Element {
   const defaults = defaultMonthDateRange();
 
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState('');
   const [dateStart, setDateStart] = useState(defaults.dateStart);
   const [dateEnd, setDateEnd] = useState(defaults.dateEnd);
@@ -34,17 +36,30 @@ export function GeneralLedgerPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!company) return;
+    if (!company?.id) return;
     void (async () => {
+      setAccountsLoading(true);
+      setAccountsError(null);
       try {
-        const res = await apiFetch<AccountsResponse>(`/companies/${company.id}/reports/accounts`);
+        const res = await apiFetch<AccountsResponse>(
+          `/companies/${company.id}/reports/accounts`,
+          { companyId: company.id },
+        );
         setAccounts(res.data);
         if (res.data[0]) setAccountId(res.data[0].id);
-      } catch {
+      } catch (err) {
         setAccounts([]);
+        setAccountId('');
+        setAccountsError(
+          err instanceof ApiError
+            ? err.message
+            : 'Gagal memuat daftar akun. Pastikan API sudah di-restart setelah update terbaru.',
+        );
+      } finally {
+        setAccountsLoading(false);
       }
     })();
-  }, [company]);
+  }, [company?.id]);
 
   async function loadReport(): Promise<void> {
     if (!company || !accountId) return;
@@ -73,15 +88,22 @@ export function GeneralLedgerPage(): JSX.Element {
             <select
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+              disabled={accountsLoading || accounts.length === 0}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm disabled:opacity-60"
             >
-              {accounts.length === 0 && <option value="">— belum ada akun —</option>}
+              {accountsLoading && <option value="">Memuat daftar akun…</option>}
+              {!accountsLoading && accounts.length === 0 && (
+                <option value="">— belum ada akun —</option>
+              )}
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {accountLabel(a)}
                 </option>
               ))}
             </select>
+            {accountsError && (
+              <p className="text-xs text-destructive">{accountsError}</p>
+            )}
           </label>
 
           <div className="flex flex-wrap items-end gap-4">
