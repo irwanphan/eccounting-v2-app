@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { SelectedCompanyBadge } from '@/components/selected-company-badge';
+import { hasSelectedCompany } from '@/lib/company-store';
 import { logout } from '@/lib/logout';
 import { cn } from '@/lib/utils';
 
@@ -44,33 +45,55 @@ const ADMIN_NAV: NavItem[] = [
   { href: '#', label: 'Pengguna', disabled: true },
 ];
 
+const NO_CLIENT_TOOLTIP = 'Pilih klien terlebih dahulu';
+const COMING_SOON_TOOLTIP = 'Menyusul';
+
 /** v1: .nav-item { display: table } — lebar mengikuti teks, tepi kanan tidak sejajar */
 function DrawerNavItem({
   item,
   active,
+  title,
   onNavigate,
 }: {
   item: NavItem;
   active: boolean;
+  title?: string;
   onNavigate: () => void;
 }): JSX.Element {
   const className = cn(
     'mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-sky-300 bg-sky-500/80 py-0 pl-6 pr-4',
     'text-base font-normal capitalize leading-[44px] text-white shadow-md transition duration-300',
     'hover:border-yellow-300 focus:border-yellow-300 active:border-yellow-400',
-    item.disabled && 'cursor-not-allowed opacity-80 hover:border-slate-400',
-    active && 'border-yellow-400',
+    item.disabled && 'cursor-not-allowed opacity-50 hover:border-sky-300',
+    active && !item.disabled && 'border-yellow-400',
   );
 
   if (item.disabled) {
-    return <span className={className}>{item.label}</span>;
+    return (
+      <span className={className} title={title}>
+        {item.label}
+      </span>
+    );
   }
 
   return (
-    <Link href={item.href} className={className} onClick={onNavigate}>
+    <Link href={item.href} className={className} title={title} onClick={onNavigate}>
       {item.label}
     </Link>
   );
+}
+
+function resolveFeatureNavItem(
+  item: NavItem,
+  companySelected: boolean,
+): { item: NavItem; title?: string } {
+  if (!companySelected) {
+    return { item: { ...item, disabled: true }, title: NO_CLIENT_TOOLTIP };
+  }
+  if (item.disabled) {
+    return { item, title: COMING_SOON_TOOLTIP };
+  }
+  return { item };
 }
 
 export function DrawerLayout({
@@ -81,6 +104,11 @@ export function DrawerLayout({
 }: DrawerLayoutProps): JSX.Element {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [companySelected, setCompanySelected] = useState(false);
+
+  useEffect(() => {
+    setCompanySelected(hasSelectedCompany());
+  }, [pathname]);
 
   function closeDrawer(): void {
     setOpen(false);
@@ -120,14 +148,18 @@ export function DrawerLayout({
           open ? 'left-0 top-24 translate-x-0 opacity-100' : 'pointer-events-none left-0 top-24 -translate-x-full opacity-0',
         )}
       >
-        {FEATURE_NAV.map((item) => (
-          <DrawerNavItem
-            key={item.label}
-            item={item}
-            active={isNavActive(pathname, item.href)}
-            onNavigate={closeDrawer}
-          />
-        ))}
+        {FEATURE_NAV.map((item) => {
+          const resolved = resolveFeatureNavItem(item, companySelected);
+          return (
+            <DrawerNavItem
+              key={item.label}
+              item={resolved.item}
+              title={resolved.title}
+              active={isNavActive(pathname, item.href)}
+              onNavigate={closeDrawer}
+            />
+          );
+        })}
 
         <div className="my-3 h-px w-8 bg-white/30" aria-hidden />
 
@@ -135,6 +167,7 @@ export function DrawerLayout({
           <DrawerNavItem
             key={item.label}
             item={item}
+            title={item.disabled ? COMING_SOON_TOOLTIP : undefined}
             active={isNavActive(pathname, item.href)}
             onNavigate={closeDrawer}
           />
