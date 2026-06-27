@@ -9,6 +9,9 @@
 
 import type { ApiErrorBody, ErrorCodeValue } from '@eccounting/shared';
 
+import { getAccessToken } from './auth-store';
+import { getSelectedCompany } from './company-store';
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
 
@@ -36,17 +39,19 @@ export async function apiFetch<T = unknown>(
   { body, companyId, authToken, headers, ...init }: RequestOptions = {},
 ): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const token = authToken ?? getAccessToken() ?? undefined;
+  const tenantId = companyId ?? getSelectedCompany()?.id;
 
   const finalHeaders = new Headers(headers);
   finalHeaders.set('Accept', 'application/json');
   if (body !== undefined && !(body instanceof FormData)) {
     finalHeaders.set('Content-Type', 'application/json');
   }
-  if (companyId !== undefined) {
-    finalHeaders.set('X-Company-Id', String(companyId));
+  if (tenantId !== undefined) {
+    finalHeaders.set('X-Company-Id', String(tenantId));
   }
-  if (authToken) {
-    finalHeaders.set('Authorization', `Bearer ${authToken}`);
+  if (token) {
+    finalHeaders.set('Authorization', `Bearer ${token}`);
   }
 
   let response: Response;

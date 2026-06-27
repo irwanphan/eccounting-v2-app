@@ -5,6 +5,7 @@ import { loginSchema, type LoginInput } from '@eccounting/shared';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { saveAuthTokens } from '@/lib/auth-store';
 import { ApiError, apiFetch } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -28,8 +29,12 @@ export function LoginForm(): JSX.Element {
   async function onSubmit(values: LoginInput): Promise<void> {
     setServerError(null);
     try {
-      await apiFetch<LoginResponse>('/auth/login', { method: 'POST', body: values });
-      window.location.href = '/dashboard';
+      const result = await apiFetch<LoginResponse>('/auth/login', { method: 'POST', body: values });
+      saveAuthTokens({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
+      window.location.href = '/companies';
     } catch (err) {
       if (err instanceof ApiError) {
         setServerError(err.message);
