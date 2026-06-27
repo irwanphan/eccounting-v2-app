@@ -117,7 +117,7 @@ export function IncomeStatementPage(): JSX.Element {
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         
         {report && (
-          <div className="mt-6 space-y-8 border border-sky-300 rounded-lg p-6">
+          <div className="mt-6 space-y-8 border border-sky-300 rounded-lg shadow-sm bg-white p-6">
             <p className="text-sm text-muted-foreground">
               Periode {formatDisplayDate(report.dateStart)} — {formatDisplayDate(report.dateEnd)}
             </p>
