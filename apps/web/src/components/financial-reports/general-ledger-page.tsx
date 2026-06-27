@@ -2,8 +2,12 @@
 
 import type { AccountOption, GeneralLedgerReport } from '@eccounting/shared';
 import { Download } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from '@/components/ui/searchable-select';
 import { ApiError, apiFetch } from '@/lib/api-client';
 import { getSelectedCompany } from '@/lib/company-store';
 import { defaultMonthDateRange, formatDisplayDate, formatIdrAmount } from '@/lib/format-idr';
@@ -16,9 +20,13 @@ interface LedgerResponse {
   data: GeneralLedgerReport | null;
 }
 
-function accountLabel(option: AccountOption): string {
-  const indent = option.level > 0 ? `${' '.repeat(option.level)}` : '';
-  return `${indent}${option.code} - ${option.name}`;
+function toAccountOptions(accounts: AccountOption[]): SearchableSelectOption[] {
+  return accounts.map((a) => ({
+    value: a.id,
+    label: `${a.code} - ${a.name}`,
+    searchText: `${a.code} ${a.name}`,
+    indent: a.level,
+  }));
 }
 
 export function GeneralLedgerPage(): JSX.Element {
@@ -61,6 +69,8 @@ export function GeneralLedgerPage(): JSX.Element {
     })();
   }, [company?.id]);
 
+  const accountOptions = useMemo(() => toAccountOptions(accounts), [accounts]);
+
   async function loadReport(): Promise<void> {
     if (!company || !accountId) return;
     setLoading(true);
@@ -83,28 +93,23 @@ export function GeneralLedgerPage(): JSX.Element {
     <>
       <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
         <div className="grid gap-6 lg:grid-cols-2">
-          <label className="block space-y-1">
-            <span className="text-xs text-muted-foreground">Kode Akun</span>
-            <select
+          <div className="space-y-1">
+            <SearchableSelect
+              label="Kode Akun"
+              options={accountOptions}
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              disabled={accountsLoading || accounts.length === 0}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm disabled:opacity-60"
-            >
-              {accountsLoading && <option value="">Memuat daftar akun…</option>}
-              {!accountsLoading && accounts.length === 0 && (
-                <option value="">— belum ada akun —</option>
-              )}
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {accountLabel(a)}
-                </option>
-              ))}
-            </select>
+              onChange={setAccountId}
+              loading={accountsLoading}
+              disabled={accounts.length === 0 && !accountsLoading}
+              placeholder="Pilih akun…"
+              searchPlaceholder="Cari kode atau nama akun…"
+              emptyMessage="— belum ada akun —"
+              noResultsMessage="Akun tidak ditemukan"
+            />
             {accountsError && (
               <p className="text-xs text-destructive">{accountsError}</p>
             )}
-          </label>
+          </div>
 
           <div className="flex flex-wrap items-end gap-4">
             <label className="space-y-1">
