@@ -16,6 +16,7 @@ export const companySchema = z.object({
   fiscalYearStartMonth: z.number().int().min(1).max(12).default(1),
   postingNumberPrefix: z.string().min(1).max(16).default('JU'),
   archivedAt: isoDateTimeSchema.nullable(),
+  legacyV1ClientId: bigintIdSchema.nullable().optional(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });

@@ -143,6 +143,7 @@ export class CompaniesService {
       baseCurrency: company.baseCurrency,
       fiscalYearStartMonth: company.fiscalYearStartMonth,
       postingNumberPrefix: company.postingNumberPrefix,
+      legacyV1ClientId: company.legacyV1ClientId ? String(company.legacyV1ClientId) : null,
       archivedAt: company.archivedAt ? company.archivedAt.toISOString() : null,
       createdAt: company.createdAt.toISOString(),
       updatedAt: company.updatedAt.toISOString(),

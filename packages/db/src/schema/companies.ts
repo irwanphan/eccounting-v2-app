@@ -34,6 +34,7 @@ export const companies = eccountingSchema.table(
     baseCurrency: char('base_currency', { length: 3 }).notNull().default('IDR'),
     fiscalYearStartMonth: smallint('fiscal_year_start_month').notNull().default(1),
     postingNumberPrefix: text('posting_number_prefix').notNull().default('JU'),
+    legacyV1ClientId: bigint('legacy_v1_client_id', { mode: 'bigint' }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdBy: bigint('created_by', { mode: 'bigint' }).references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
