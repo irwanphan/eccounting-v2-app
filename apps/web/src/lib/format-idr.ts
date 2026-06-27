@@ -8,6 +8,20 @@ export function formatIdrAmount(value: string | number): string {
   }).format(num);
 }
 
+/** Default bulan berjalan (format input type=month YYYY-MM) */
+export function defaultMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** YYYY-MM → label "Jan 2025" */
+export function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-');
+  if (!y || !m) return month;
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return new Intl.DateTimeFormat('id-ID', { month: 'short', year: 'numeric' }).format(date);
+}
+
 /** Default tanggal awal bulan & akhir bulan (format input type=date YYYY-MM-DD) */
 export function defaultMonthDateRange(): { dateStart: string; dateEnd: string } {
   const now = new Date();

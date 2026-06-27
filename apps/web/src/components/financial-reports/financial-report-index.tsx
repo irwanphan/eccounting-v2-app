@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const REPORT_LINKS = [
   { href: '/financial-reports/ledger', label: 'Buku Besar', enabled: true },
-  { href: '#', label: 'Neraca', enabled: false },
+  { href: '/financial-reports/balance-sheet', label: 'Neraca', enabled: true },
   { href: '#', label: 'Neraca Saldo', enabled: false },
   { href: '#', label: 'Laporan Laba Rugi', enabled: false },
 ] as const;
