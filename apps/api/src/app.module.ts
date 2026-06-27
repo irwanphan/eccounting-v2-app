@@ -7,6 +7,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { DbModule } from './infra/db/db.module';
 import { QueueModule } from './infra/queue/queue.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { FirmsModule } from './modules/firms/firms.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     FirmsModule,
     CompaniesModule,
+    AccountsModule,
     JournalsModule,
     ReportsModule,
     HealthModule,
