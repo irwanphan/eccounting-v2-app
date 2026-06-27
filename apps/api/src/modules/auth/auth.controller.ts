@@ -3,7 +3,6 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
-  Logger,
   Post,
   Req,
   UseGuards,
@@ -36,8 +35,6 @@ import { AuthService } from './auth.service';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-
   constructor(private readonly authService: AuthService) {}
 
   @Public()

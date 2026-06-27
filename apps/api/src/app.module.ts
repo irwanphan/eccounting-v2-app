@@ -18,6 +18,8 @@ import { UsersModule } from './modules/users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      // Monorepo: .env ada di repo root, bukan di apps/api
+      envFilePath: ['../../.env', '.env', '.env.local'],
     }),
     ThrottlerModule.forRoot([
       {

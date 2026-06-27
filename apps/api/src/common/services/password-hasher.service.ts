@@ -1,16 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as argon2 from '@node-rs/argon2';
+import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import * as bcrypt from 'bcryptjs';
 
 export type SupportedAlgo = 'argon2id' | 'bcrypt';
 
-const ARGON2_OPTIONS: argon2.HashOptions = {
-  // Direkomendasikan OWASP 2024 untuk argon2id (memori 19 MiB, time cost 2)
+/** OWASP 2024 recommended argon2id params (19 MiB memory, time cost 2). */
+const ARGON2_OPTIONS = {
   memoryCost: 19_456,
   timeCost: 2,
   parallelism: 1,
-  algorithm: argon2.Algorithm.Argon2id,
-};
+} as const;
 
 @Injectable()
 export class PasswordHasherService {
@@ -29,17 +28,17 @@ export class PasswordHasherService {
 
   /** Hash password baru. SELALU pakai argon2id untuk user baru / change password. */
   hash(plaintext: string): Promise<string> {
-    return argon2.hash(plaintext, ARGON2_OPTIONS);
+    return argon2Hash(plaintext, ARGON2_OPTIONS);
   }
 
   /** Verify password — auto detect algoritma dari hash prefix. */
-  async verify(plaintext: string, hash: string): Promise<boolean> {
-    const algo = this.detectAlgo(hash);
+  async verify(plaintext: string, hashValue: string): Promise<boolean> {
+    const algo = this.detectAlgo(hashValue);
     try {
       if (algo === 'argon2id') {
-        return await argon2.verify(hash, plaintext);
+        return await argon2Verify(hashValue, plaintext);
       }
-      return await bcrypt.compare(plaintext, hash);
+      return await bcrypt.compare(plaintext, hashValue);
     } catch (err) {
       this.logger.warn(`Password verify failed (${algo}): ${(err as Error).message}`);
       return false;
