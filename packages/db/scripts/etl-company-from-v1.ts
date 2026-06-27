@@ -150,9 +150,41 @@ function parseCli(): CliOptions {
   };
 }
 
-function toAmount(val: string | null | undefined): string {
-  if (val == null || val === '') return '0';
-  return val;
+/** Normalisasi sisi debit/credit v1 → v2 (non-negatif, tepat satu sisi > 0). */
+function normalizeV1JournalAmounts(
+  debet: string | null | undefined,
+  credit: string | null | undefined,
+): { debit: string; credit: string } | null {
+  let debit = Number(debet ?? 0);
+  let creditAmt = Number(credit ?? 0);
+
+  if (!Number.isFinite(debit)) debit = 0;
+  if (!Number.isFinite(creditAmt)) creditAmt = 0;
+
+  // v1 kadang pakai nilai negatif di sisi salah
+  if (debit < 0) {
+    creditAmt += -debit;
+    debit = 0;
+  }
+  if (creditAmt < 0) {
+    debit += -creditAmt;
+    creditAmt = 0;
+  }
+
+  if (debit === 0 && creditAmt === 0) return null;
+
+  if (debit > 0 && creditAmt > 0) {
+    if (debit >= creditAmt) {
+      debit -= creditAmt;
+      creditAmt = 0;
+    } else {
+      creditAmt -= debit;
+      debit = 0;
+    }
+    if (debit === 0 && creditAmt === 0) return null;
+  }
+
+  return { debit: debit.toFixed(4), credit: creditAmt.toFixed(4) };
 }
 
 function postingNumberForGroup(g: V1GroupJournal): string {
@@ -583,13 +615,32 @@ async function migrateJournals(
       );
       const journalLines = lines as unknown as V1JournalLine[];
 
-      if (journalLines.length < 2) {
-        console.warn(`  skip group #${g.id} (${g.id_show}): fewer than 2 lines`);
+      const normalizedLines: Array<V1JournalLine & { debit: string; credit: string }> = [];
+      let droppedZeroLines = 0;
+      for (const line of journalLines) {
+        const normalized = normalizeV1JournalAmounts(line.debet, line.credit);
+        if (!normalized) {
+          droppedZeroLines++;
+          continue;
+        }
+        normalizedLines.push({ ...line, debit: normalized.debit, credit: normalized.credit });
+      }
+
+      if (normalizedLines.length < 2) {
+        console.warn(
+          `  skip group #${g.id} (${g.id_show}): fewer than 2 valid lines (${droppedZeroLines} zero/null rows dropped)`,
+        );
         skipped++;
         continue;
       }
 
-      const txDates = journalLines.map((l) => l.transaction_date).sort();
+      if (droppedZeroLines > 0) {
+        console.warn(
+          `  group #${g.id} (${g.id_show}): dropped ${droppedZeroLines} zero/null journal row(s)`,
+        );
+      }
+
+      const txDates = normalizedLines.map((l) => l.transaction_date).sort();
       const transactionDate = txDates[0]!;
       const source = g.batch_import_id != null ? 'import' : 'manual';
       let postingNumber = postingNumberForGroup(g);
@@ -630,7 +681,7 @@ async function migrateJournals(
         const entryId = entryRes.rows[0]!.id;
 
         let lineNo = 1;
-        for (const line of journalLines) {
+        for (const line of normalizedLines) {
           const accountId = accountMap.get(line.coa_id);
           if (!accountId) {
             throw new Error(`missing account mapping for v1 coa_id=${line.coa_id}`);
@@ -648,8 +699,8 @@ async function migrateJournals(
               companyId.toString(),
               accountId.toString(),
               lineNo,
-              toAmount(line.debet),
-              toAmount(line.credit),
+              line.debit,
+              line.credit,
               line.reference?.trim() || null,
               line.desc?.trim() || null,
             ],

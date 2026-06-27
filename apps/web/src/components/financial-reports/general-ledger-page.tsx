@@ -139,7 +139,7 @@ export function GeneralLedgerPage(): JSX.Element {
             type="button"
             onClick={loadReport}
             disabled={loading || !accountId}
-            className="rounded-md bg-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-600 disabled:opacity-60"
+            className="rounded-md bg-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-600 disabled:opacity-60 transition duration-300"
           >
             Tampil
           </button>
@@ -147,7 +147,7 @@ export function GeneralLedgerPage(): JSX.Element {
             type="button"
             disabled
             title="Menyusul"
-            className="inline-flex cursor-not-allowed items-center gap-2 rounded-md bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white opacity-60 shadow-sm"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-md bg-green-500 px-5 py-2.5 text-sm font-medium text-white opacity-60 shadow-sm transition duration-300"
           >
             <Download className="h-4 w-4" />
             Export .XLSX
@@ -198,6 +198,17 @@ export function GeneralLedgerPage(): JSX.Element {
                   <td className="px-3 py-2 text-right tabular-nums">{formatIdrAmount(line.balance)}</td>
                 </tr>
               ))}
+              {report.retainedEarningsInPeriod != null && (
+                <tr className="border-b font-medium">
+                  <td colSpan={6} className="px-3 py-2">
+                    Laba Rugi Periode Berjalan ({formatDisplayDate(report.dateStart)} s/d{' '}
+                    {formatDisplayDate(report.dateEnd)})
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatIdrAmount(report.retainedEarningsInPeriod)}
+                  </td>
+                </tr>
+              )}
               <tr className="font-medium">
                 <td colSpan={5} className="px-3 py-2" />
                 <td className="px-3 py-2 text-right">Saldo Akhir</td>

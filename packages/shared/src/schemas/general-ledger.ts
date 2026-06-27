@@ -32,6 +32,8 @@ export const generalLedgerReportSchema = z.object({
   dateEnd: isoDateSchema,
   openingBalance: z.string(),
   closingBalance: z.string(),
+  /** Diisi untuk akun Laba Rugi Periode Berjalan — setara baris khusus v1 sebelum Saldo Akhir */
+  retainedEarningsInPeriod: z.string().nullable(),
   lines: z.array(generalLedgerLineSchema),
 });
 

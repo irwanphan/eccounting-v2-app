@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { accounts, journalEntries, journalLines } from '@eccounting/db';
-import type { AccountOption, GeneralLedgerReport } from '@eccounting/shared';
-import { and, asc, between, eq, lt, sql } from 'drizzle-orm';
+import type { AccountCategory, AccountOption, GeneralLedgerReport } from '@eccounting/shared';
+import { and, asc, between, eq, inArray, lt, sql } from 'drizzle-orm';
 
 import { DbService } from '../../infra/db/db.service';
+
+/** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
+const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
+
+/** Setara v1 CoaCategory::KELOMPOK['BIAYA'] — category_id 4,5,6,7,8 */
+const EXPENSE_CATEGORIES: AccountCategory[] = ['COGS', 'EXPENSE', 'OTHER_EXPENSE', 'TAX_EXPENSE'];
+
+const PL_CATEGORIES: AccountCategory[] = [...REVENUE_CATEGORIES, ...EXPENSE_CATEGORIES];
 
 @Injectable()
 export class ReportsService {
@@ -43,12 +51,17 @@ export class ReportsService {
         code: accounts.code,
         name: accounts.name,
         normalBalance: accounts.normalBalance,
+        category: accounts.category,
+        isRetainedEarning: accounts.isRetainedEarning,
       })
       .from(accounts)
       .where(and(eq(accounts.id, accountId), eq(accounts.companyId, companyId)))
       .limit(1);
 
     if (!account) return null;
+
+    const isPlAccount = PL_CATEGORIES.includes(account.category);
+    const isRetainedEarningAccount = account.isRetainedEarning;
 
     const [opening] = await this.db.db
       .select({
@@ -69,6 +82,16 @@ export class ReportsService {
       account.normalBalance === 'D'
         ? Number(opening?.totalDebit ?? 0) - Number(opening?.totalCredit ?? 0)
         : Number(opening?.totalCredit ?? 0) - Number(opening?.totalDebit ?? 0);
+
+    // v1: akun PENDAPATAN/BIAYA selalu mulai dari 0
+    if (isPlAccount) {
+      running = 0;
+    }
+
+    // v1: akun Laba Rugi Periode Berjalan ditambah saldo P/L kumulatif sebelum periode
+    if (isRetainedEarningAccount) {
+      running += await this.calculateRetainedEarningsBefore(companyId, dateStart);
+    }
 
     const openingBalance = running;
 
@@ -115,6 +138,13 @@ export class ReportsService {
       };
     });
 
+    let retainedEarningsInPeriod: string | null = null;
+    if (isRetainedEarningAccount) {
+      const periodPl = await this.calculateRetainedEarningsInPeriod(companyId, dateStart, dateEnd);
+      retainedEarningsInPeriod = periodPl.toFixed(4);
+      running += periodPl;
+    }
+
     return {
       account: {
         id: String(account.id),
@@ -126,7 +156,80 @@ export class ReportsService {
       dateEnd,
       openingBalance: openingBalance.toFixed(4),
       closingBalance: running.toFixed(4),
+      retainedEarningsInPeriod,
       lines,
+    };
+  }
+
+  /**
+   * saldo_pb — laba rugi kumulatif sebelum dateStart.
+   * Setara v1: (pendapatan credit-debet) - (biaya debet-credit)
+   */
+  private async calculateRetainedEarningsBefore(
+    companyId: bigint,
+    dateStart: string,
+  ): Promise<number> {
+    const revenue = await this.sumCategoryTotals(companyId, REVENUE_CATEGORIES, {
+      before: dateStart,
+    });
+    const expense = await this.sumCategoryTotals(companyId, EXPENSE_CATEGORIES, {
+      before: dateStart,
+    });
+
+    const revenueNet = Number(revenue.totalCredit) - Number(revenue.totalDebit);
+    const expenseNet = Number(expense.totalDebit) - Number(expense.totalCredit);
+    return revenueNet - expenseNet;
+  }
+
+  /** saldo_pb_sekarang — laba rugi dalam rentang periode. */
+  private async calculateRetainedEarningsInPeriod(
+    companyId: bigint,
+    dateStart: string,
+    dateEnd: string,
+  ): Promise<number> {
+    const revenue = await this.sumCategoryTotals(companyId, REVENUE_CATEGORIES, {
+      from: dateStart,
+      to: dateEnd,
+    });
+    const expense = await this.sumCategoryTotals(companyId, EXPENSE_CATEGORIES, {
+      from: dateStart,
+      to: dateEnd,
+    });
+
+    const revenueNet = Number(revenue.totalCredit) - Number(revenue.totalDebit);
+    const expenseNet = Number(expense.totalDebit) - Number(expense.totalCredit);
+    return revenueNet - expenseNet;
+  }
+
+  private async sumCategoryTotals(
+    companyId: bigint,
+    categories: AccountCategory[],
+    range: { before?: string; from?: string; to?: string },
+  ): Promise<{ totalDebit: string; totalCredit: string }> {
+    const dateFilter =
+      range.before != null
+        ? lt(journalEntries.transactionDate, range.before)
+        : between(journalEntries.transactionDate, range.from!, range.to!);
+
+    const [row] = await this.db.db
+      .select({
+        totalDebit: sql<string>`COALESCE(SUM(${journalLines.debit}), 0)::text`.as('total_debit'),
+        totalCredit: sql<string>`COALESCE(SUM(${journalLines.credit}), 0)::text`.as('total_credit'),
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.journalEntryId))
+      .innerJoin(accounts, eq(accounts.id, journalLines.accountId))
+      .where(
+        and(
+          eq(journalLines.companyId, companyId),
+          inArray(accounts.category, categories),
+          dateFilter,
+        ),
+      );
+
+    return {
+      totalDebit: row?.totalDebit ?? '0',
+      totalCredit: row?.totalCredit ?? '0',
     };
   }
 }
