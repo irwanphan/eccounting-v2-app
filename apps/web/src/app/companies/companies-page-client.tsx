@@ -1,19 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RequireAuth } from '@/components/require-auth';
 import {
-  CompanyList,
+  ClientListPage,
   fetchCompanies,
   getCompaniesErrorMessage,
   type CompanyListItem,
-} from './company-list';
+} from '@/components/companies/client-list-page';
+import { DrawerLayout } from '@/components/drawer-layout';
+import { RequireAuth } from '@/components/require-auth';
 
 export function CompaniesPageClient(): JSX.Element {
   const [companies, setCompanies] = useState<CompanyListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createFormOpen, setCreateFormOpen] = useState(false);
+
+  const loadCompanies = useCallback(async () => {
+    const rows = await fetchCompanies();
+    setCompanies(rows);
+  }, []);
 
   useEffect(() => {
     fetchCompanies()
@@ -22,38 +30,48 @@ export function CompaniesPageClient(): JSX.Element {
       .finally(() => setLoading(false));
   }, []);
 
+  async function handleRefresh(): Promise<void> {
+    await loadCompanies();
+  }
+
   return (
     <RequireAuth>
-      <div className="min-h-screen bg-slate-100">
-        <div className="mx-auto max-w-3xl p-6">
-          <div className="rounded-lg bg-white p-6 shadow-sm">
-            <header className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-4">
-              <div>
-                <h1 className="text-xl font-semibold uppercase tracking-wide text-slate-700">
-                  Daftar Klien
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Pilih klien terlebih dahulu — sama seperti v1 <code>/admin/client</code>
-                </p>
-              </div>
-            </header>
+      <DrawerLayout
+        title="Klien"
+        headerActions={
+          <button
+            type="button"
+            onClick={() => setCreateFormOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-600"
+          >
+            <Plus className="h-4 w-4" />
+            Baru
+          </button>
+        }
+      >
+        {loading && (
+          <p className="text-sm text-muted-foreground">Memuat daftar klien…</p>
+        )}
 
-            {loading && (
-              <p className="text-sm text-muted-foreground">Memuat daftar klien…</p>
-            )}
-            {error && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-                <p className="mt-2 text-xs">
-                  Pastikan sudah menjalankan <code>pnpm db:migrate</code> dan{' '}
-                  <code>pnpm db:bootstrap-from-v1</code>.
-                </p>
-              </div>
-            )}
-            {!loading && !error && <CompanyList initialCompanies={companies} />}
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-white p-4 text-sm text-destructive shadow-sm">
+            {error}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Pastikan sudah menjalankan <code>pnpm db:migrate</code> dan{' '}
+              <code>pnpm db:bootstrap-from-v1</code>.
+            </p>
           </div>
-        </div>
-      </div>
+        )}
+
+        {!loading && !error && (
+          <ClientListPage
+            companies={companies}
+            onRefresh={handleRefresh}
+            createFormOpen={createFormOpen}
+            onCreateFormOpenChange={setCreateFormOpen}
+          />
+        )}
+      </DrawerLayout>
     </RequireAuth>
   );
 }
