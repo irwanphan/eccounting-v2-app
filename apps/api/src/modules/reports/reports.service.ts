@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { accounts, journalEntries, journalLines } from '@eccounting/db';
-import type { AccountCategory, AccountOption, GeneralLedgerReport } from '@eccounting/shared';
-import { and, asc, between, eq, inArray, lt, sql } from 'drizzle-orm';
+import type {
+  AccountCategory,
+  AccountOption,
+  BalanceSheetReport,
+  GeneralLedgerReport,
+} from '@eccounting/shared';
+import { and, asc, between, eq, inArray, lte, lt, sql } from 'drizzle-orm';
 
 import { DbService } from '../../infra/db/db.service';
+import { DEFAULT_BALANCE_SHEET_TEMPLATE } from './balance-sheet.template';
 
 /** Setara v1 CoaCategory::KELOMPOK['PENDAPATAN'] — category_id 1,2,3 */
 const REVENUE_CATEGORIES: AccountCategory[] = ['REVENUE', 'OTHER_INCOME'];
@@ -161,6 +167,133 @@ export class ReportsService {
     };
   }
 
+  async getBalanceSheet(companyId: bigint, month: string): Promise<BalanceSheetReport> {
+    const { dateStart, dateEnd } = parseMonthRange(month);
+    const nominals = await this.buildAccountNominals(companyId, dateEnd);
+
+    const accountRows = await this.db.db
+      .select({ id: accounts.id, code: accounts.code, name: accounts.name })
+      .from(accounts)
+      .where(eq(accounts.companyId, companyId));
+
+    const accountByCode = new Map(accountRows.map((a) => [a.code, a]));
+
+    const sections = DEFAULT_BALANCE_SHEET_TEMPLATE.map((sectionTpl) => {
+      let sectionTotal = 0;
+
+      const subsections = sectionTpl.subsections.map((subTpl) => {
+        let subTotal = 0;
+
+        const rows = subTpl.rows.map((rowTpl) => {
+          const account = accountByCode.get(rowTpl.code);
+          const name = account?.name ?? rowTpl.code;
+          let amount: string | null = null;
+
+          if (rowTpl.showNominal && account) {
+            const nominal = nominals.get(account.id) ?? { debit: 0, credit: 0 };
+            const net = (nominal.debit - nominal.credit) * subTpl.reverseCalculation;
+            subTotal += net;
+            sectionTotal += net;
+            amount = net.toFixed(4);
+          }
+
+          return {
+            code: rowTpl.code,
+            name,
+            level: rowTpl.level,
+            amount,
+          };
+        });
+
+        return {
+          name: subTpl.name,
+          reverseCalculation: subTpl.reverseCalculation,
+          rows,
+          total: subTotal.toFixed(4),
+        };
+      });
+
+      return {
+        name: sectionTpl.name,
+        subsections,
+        summaryLabel: sectionTpl.summaryLabel,
+        summaryTotal: sectionTotal.toFixed(4),
+      };
+    });
+
+    return { month, dateStart, dateEnd, sections };
+  }
+
+  /**
+   * Saldo kumulatif per akun (debit/credit ter-rollup ke parent) sampai dateEnd.
+   * Setara v1 BalanceSheetController::queryBalanceSheet + getTreeTotalNominal.
+   */
+  private async buildAccountNominals(
+    companyId: bigint,
+    dateEnd: string,
+  ): Promise<Map<bigint, { debit: number; credit: number }>> {
+    const accountRows = await this.db.db
+      .select({
+        id: accounts.id,
+        parentId: accounts.parentId,
+        level: accounts.level,
+        isRetainedEarning: accounts.isRetainedEarning,
+      })
+      .from(accounts)
+      .where(eq(accounts.companyId, companyId));
+
+    const nominals = new Map<bigint, { debit: number; credit: number }>();
+    for (const acc of accountRows) {
+      nominals.set(acc.id, { debit: 0, credit: 0 });
+    }
+
+    const sums = await this.db.db
+      .select({
+        accountId: journalLines.accountId,
+        totalDebit: sql<string>`COALESCE(SUM(${journalLines.debit}), 0)::text`.as('total_debit'),
+        totalCredit: sql<string>`COALESCE(SUM(${journalLines.credit}), 0)::text`.as('total_credit'),
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.journalEntryId))
+      .where(
+        and(eq(journalLines.companyId, companyId), lte(journalEntries.transactionDate, dateEnd)),
+      )
+      .groupBy(journalLines.accountId);
+
+    for (const row of sums) {
+      nominals.set(row.accountId, {
+        debit: Number(row.totalDebit),
+        credit: Number(row.totalCredit),
+      });
+    }
+
+    const lrpbAccount = accountRows.find((a) => a.isRetainedEarning);
+    if (lrpbAccount) {
+      const revenue = await this.sumCategoryTotals(companyId, REVENUE_CATEGORIES, {
+        through: dateEnd,
+      });
+      const expense = await this.sumCategoryTotals(companyId, EXPENSE_CATEGORIES, {
+        through: dateEnd,
+      });
+
+      const current = nominals.get(lrpbAccount.id)!;
+      current.debit += Number(revenue.totalDebit) + Number(expense.totalDebit);
+      current.credit += Number(revenue.totalCredit) + Number(expense.totalCredit);
+    }
+
+    const byLevel = [...accountRows].sort((a, b) => b.level - a.level);
+    for (const acc of byLevel) {
+      if (acc.parentId == null) continue;
+      const child = nominals.get(acc.id);
+      const parent = nominals.get(acc.parentId);
+      if (!child || !parent) continue;
+      parent.debit += child.debit;
+      parent.credit += child.credit;
+    }
+
+    return nominals;
+  }
+
   /**
    * saldo_pb — laba rugi kumulatif sebelum dateStart.
    * Setara v1: (pendapatan credit-debet) - (biaya debet-credit)
@@ -204,12 +337,14 @@ export class ReportsService {
   private async sumCategoryTotals(
     companyId: bigint,
     categories: AccountCategory[],
-    range: { before?: string; from?: string; to?: string },
+    range: { before?: string; from?: string; to?: string; through?: string },
   ): Promise<{ totalDebit: string; totalCredit: string }> {
     const dateFilter =
       range.before != null
         ? lt(journalEntries.transactionDate, range.before)
-        : between(journalEntries.transactionDate, range.from!, range.to!);
+        : range.through != null
+          ? lte(journalEntries.transactionDate, range.through)
+          : between(journalEntries.transactionDate, range.from!, range.to!);
 
     const [row] = await this.db.db
       .select({
@@ -232,4 +367,20 @@ export class ReportsService {
       totalCredit: row?.totalCredit ?? '0',
     };
   }
+}
+
+function parseMonthRange(month: string): { dateStart: string; dateEnd: string } {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) {
+    throw new Error(`Invalid month format "${month}", expected YYYY-MM`);
+  }
+  const year = Number(match[1]);
+  const mon = Number(match[2]);
+  if (mon < 1 || mon > 12) {
+    throw new Error(`Invalid month "${month}"`);
+  }
+  const dateStart = `${match[1]}-${match[2]}-01`;
+  const lastDay = new Date(year, mon, 0).getDate();
+  const dateEnd = `${match[1]}-${match[2]}-${String(lastDay).padStart(2, '0')}`;
+  return { dateStart, dateEnd };
 }

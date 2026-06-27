@@ -42,4 +42,15 @@ export class ReportsController {
     if (!data) return { data: null };
     return { data };
   }
+
+  @Get('balance-sheet')
+  @ApiOperation({
+    summary: 'Laporan Neraca',
+    description: 'Filter per bulan (YYYY-MM), setara v1 balance-sheet.getData',
+  })
+  @ApiQuery({ name: 'month', required: true, example: '2025-01' })
+  async balanceSheet(@Param('companyId') companyId: string, @Query('month') month: string) {
+    const data = await this.reports.getBalanceSheet(BigInt(companyId), month);
+    return { data };
+  }
 }
