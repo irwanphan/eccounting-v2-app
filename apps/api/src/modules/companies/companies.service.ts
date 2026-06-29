@@ -10,6 +10,7 @@ import {
 import {
   type CompanyRole,
   type CreateCompanyInput,
+  type UpdateCompanyInput,
   ErrorCode,
   NotFoundError,
 } from '@eccounting/shared';
@@ -106,6 +107,37 @@ export class CompaniesService {
       .update(companies)
       .set({ archivedAt: new Date() })
       .where(and(eq(companies.id, id), eq(companies.firmId, firmId)));
+  }
+
+  async update(id: bigint, firmId: bigint, input: UpdateCompanyInput): Promise<Company> {
+    await this.getById(id, firmId);
+
+    const patch: Partial<typeof companies.$inferInsert> = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.npwp !== undefined) patch.npwp = input.npwp;
+    if (input.address !== undefined) patch.address = input.address;
+    if (input.phone !== undefined) patch.phone = input.phone;
+    if (input.email !== undefined) patch.email = input.email === '' ? null : input.email;
+    if (input.baseCurrency !== undefined) patch.baseCurrency = input.baseCurrency;
+    if (input.fiscalYearStartMonth !== undefined) {
+      patch.fiscalYearStartMonth = input.fiscalYearStartMonth;
+    }
+    if (input.postingNumberPrefix !== undefined) {
+      patch.postingNumberPrefix = input.postingNumberPrefix;
+    }
+
+    const [updated] = await this.db.db
+      .update(companies)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(companies.id, id), eq(companies.firmId, firmId)))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundError(ErrorCode.COMPANY_NOT_FOUND, `Company ${id} tidak ditemukan`);
+    }
+
+    this.logger.log(`Company ${id} updated`);
+    return updated;
   }
 
   async addMember(

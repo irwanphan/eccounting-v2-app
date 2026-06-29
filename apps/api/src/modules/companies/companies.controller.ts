@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -15,8 +16,10 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import {
   type AddCompanyMemberInput,
   type CreateCompanyInput,
+  type UpdateCompanyInput,
   addCompanyMemberSchema,
   createCompanySchema,
+  updateCompanySchema,
 } from '@eccounting/shared';
 
 import { CurrentUser, type AuthUserContext } from '../../common/decorators/current-user.decorator';
@@ -71,6 +74,18 @@ export class CompaniesController {
       userId: user.userId,
       firmId: user.firmId,
     });
+    return this.companies.toDto(company);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Perbarui data klien / pengaturan perusahaan' })
+  @UsePipes(new ZodValidationPipe(updateCompanySchema))
+  async update(
+    @Param('id') id: string,
+    @Body() body: UpdateCompanyInput,
+    @CurrentUser() user: AuthUserContext,
+  ): Promise<Record<string, unknown>> {
+    const company = await this.companies.update(BigInt(id), user.firmId, body);
     return this.companies.toDto(company);
   }
 
