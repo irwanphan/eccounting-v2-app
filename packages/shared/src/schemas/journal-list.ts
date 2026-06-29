@@ -18,6 +18,8 @@ export const journalGroupedRowSchema = z.object({
   totalDebit: monetaryAmountSchema,
   totalCredit: monetaryAmountSchema,
   isImported: z.boolean(),
+  isReversed: z.boolean(),
+  isReversal: z.boolean(),
 });
 
 export const journalDetailRowSchema = z.object({
