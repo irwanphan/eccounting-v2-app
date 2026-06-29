@@ -37,6 +37,30 @@ export const createCompanySchema = z.object({
   seedDefaultCoa: z.boolean().default(true),
 });
 
+export const updateCompanySchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    npwp: z.string().min(15).max(20).nullable().optional(),
+    address: z.string().max(500).nullable().optional(),
+    phone: z.string().max(32).nullable().optional(),
+    email: z.union([z.string().email(), z.literal('')]).optional(),
+    baseCurrency: z.string().length(3).optional(),
+    fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),
+    postingNumberPrefix: z.string().min(1).max(16).optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.npwp !== undefined ||
+      data.address !== undefined ||
+      data.phone !== undefined ||
+      data.email !== undefined ||
+      data.baseCurrency !== undefined ||
+      data.fiscalYearStartMonth !== undefined ||
+      data.postingNumberPrefix !== undefined,
+    { message: 'Minimal satu field harus diisi' },
+  );
+
 export const companyMemberSchema = z.object({
   companyId: bigintIdSchema,
   userId: bigintIdSchema,
@@ -52,5 +76,6 @@ export const addCompanyMemberSchema = z.object({
 export type CompanyRole = z.infer<typeof companyRoleSchema>;
 export type Company = z.infer<typeof companySchema>;
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
+export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;
 export type CompanyMember = z.infer<typeof companyMemberSchema>;
 export type AddCompanyMemberInput = z.infer<typeof addCompanyMemberSchema>;
