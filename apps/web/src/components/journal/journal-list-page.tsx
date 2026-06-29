@@ -9,6 +9,8 @@ import { getSelectedCompany } from '@/lib/company-store';
 import { defaultMonthDateRange, formatDisplayDate, formatIdrAmount } from '@/lib/format-idr';
 import { cn } from '@/lib/utils';
 
+import { JournalReverseModal } from './journal-reverse-modal';
+
 type ViewMode = 'grouped' | 'detail';
 
 interface GroupedResponse {
@@ -25,7 +27,7 @@ interface LinesResponse {
 }
 
 export function JournalListPage(): JSX.Element {
-  const company = getSelectedCompany();
+  const companyId = getSelectedCompany()?.id ?? null;
   const defaults = defaultMonthDateRange();
 
   const [dateStart, setDateStart] = useState(defaults.dateStart);
@@ -39,15 +41,17 @@ export function JournalListPage(): JSX.Element {
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [viewLines, setViewLines] = useState<JournalLineView[]>([]);
   const [viewPostingNumber, setViewPostingNumber] = useState('');
+  const [pendingReverse, setPendingReverse] = useState<JournalGroupedRow | null>(null);
+  const [reversing, setReversing] = useState(false);
 
   async function loadGrouped(): Promise<void> {
-    if (!company) return;
+    if (!companyId) return;
     setLoading(true);
     setError(null);
     setViewMode('grouped');
     try {
       const res = await apiFetch<GroupedResponse>(
-        `/companies/${company.id}/journal-entries/grouped?dateStart=${dateStart}&dateEnd=${dateEnd}`,
+        `/companies/${companyId}/journal-entries/grouped?dateStart=${dateStart}&dateEnd=${dateEnd}`,
       );
       setGroupedRows(res.data);
     } catch (err) {
@@ -59,13 +63,13 @@ export function JournalListPage(): JSX.Element {
   }
 
   async function loadDetail(): Promise<void> {
-    if (!company) return;
+    if (!companyId) return;
     setLoading(true);
     setError(null);
     setViewMode('detail');
     try {
       const res = await apiFetch<DetailResponse>(
-        `/companies/${company.id}/journal-entries/detail?dateStart=${dateStart}&dateEnd=${dateEnd}`,
+        `/companies/${companyId}/journal-entries/detail?dateStart=${dateStart}&dateEnd=${dateEnd}`,
       );
       setDetailRows(res.data);
     } catch (err) {
@@ -77,16 +81,37 @@ export function JournalListPage(): JSX.Element {
   }
 
   async function openView(entryId: string, postingNumber: string): Promise<void> {
-    if (!company) return;
+    if (!companyId) return;
     setViewEntryId(entryId);
     setViewPostingNumber(postingNumber);
     try {
       const res = await apiFetch<LinesResponse>(
-        `/companies/${company.id}/journal-entries/${entryId}/lines`,
+        `/companies/${companyId}/journal-entries/${entryId}/lines`,
       );
       setViewLines(res.lines);
     } catch {
       setViewLines([]);
+    }
+  }
+
+  async function confirmReverse(): Promise<void> {
+    if (!companyId || !pendingReverse) return;
+    setReversing(true);
+    setError(null);
+    try {
+      await apiFetch(`/companies/${companyId}/journal-entries/${pendingReverse.id}/reverse`, {
+        method: 'POST',
+        body: {
+          reason: `Pembalikan jurnal ${pendingReverse.postingNumber}`,
+          postingDate: new Date().toISOString().slice(0, 10),
+        },
+      });
+      setPendingReverse(null);
+      if (viewMode === 'grouped') await loadGrouped();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Gagal membatalkan jurnal');
+    } finally {
+      setReversing(false);
     }
   }
 
@@ -231,6 +256,12 @@ export function JournalListPage(): JSX.Element {
                           {row.isImported && (
                             <span className="mr-1 font-semibold text-emerald-700">[ IMPORTED ]</span>
                           )}
+                          {row.isReversal && (
+                            <span className="mr-1 font-semibold text-violet-700">[ REVERSAL ]</span>
+                          )}
+                          {row.isReversed && !row.isReversal && (
+                            <span className="mr-1 font-semibold text-rose-700">[ DIBATALKAN ]</span>
+                          )}
                           {row.description ?? ''}
                         </td>
                         <td className="px-2 py-2">
@@ -239,14 +270,21 @@ export function JournalListPage(): JSX.Element {
                               type="button"
                               title="Lihat"
                               onClick={() => openView(row.id, row.postingNumber)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600 transition duration-300 cursor-pointer disabled:cursor-not-allowed"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600 transition duration-300 cursor-pointer"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
-                              title="Hapus (menyusul — v2 pakai reversal)"
-                              disabled
+                              title={
+                                row.isReversed || row.isReversal
+                                  ? row.isReversal
+                                    ? 'Jurnal pembalik tidak bisa dibatalkan'
+                                    : 'Jurnal sudah dibatalkan'
+                                  : 'Batalkan jurnal (reversal)'
+                              }
+                              disabled={row.isReversed || row.isReversal || reversing}
+                              onClick={() => setPendingReverse(row)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 hover:bg-rose-600 text-white transition duration-300 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -355,6 +393,15 @@ export function JournalListPage(): JSX.Element {
               </div>
             </div>
           </div>
+        )}
+
+        {pendingReverse && (
+          <JournalReverseModal
+            postingNumber={pendingReverse.postingNumber}
+            reversing={reversing}
+            onCancel={() => setPendingReverse(null)}
+            onConfirm={() => void confirmReverse()}
+          />
         )}
 
       </div>
