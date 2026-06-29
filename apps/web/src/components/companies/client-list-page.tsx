@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeftRight, Pencil, PhoneCall, MapPin, Search, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { ClientActionButton } from '@/components/companies/client-action-button';
@@ -38,6 +39,7 @@ export function ClientListPage({
   createFormOpen,
   onCreateFormOpenChange,
 }: ClientListPageProps): JSX.Element {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pendingSelect, setPendingSelect] = useState<CompanyListItem | null>(null);
@@ -177,9 +179,9 @@ export function ClientListPage({
                 />
                 <ClientActionButton
                   icon={Pencil}
-                  title="Ubah klien (menyusul)"
+                  title="Pengaturan klien"
                   variant="edit"
-                  disabled
+                  onClick={() => router.push(`/companies/${company.id}/settings`)}
                 />
                 <ClientActionButton
                   icon={Trash2}

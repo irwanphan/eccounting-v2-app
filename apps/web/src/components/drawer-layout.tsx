@@ -27,6 +27,8 @@ function isNavActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
   if (href === '/financial-reports') return pathname.startsWith('/financial-reports');
   if (href === '/accounts') return pathname.startsWith('/accounts');
+  if (href === '/companies') return pathname.startsWith('/companies');
+  if (href === '/users') return pathname.startsWith('/users');
   return pathname === href;
 }
 
