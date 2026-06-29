@@ -1,9 +1,10 @@
 'use client';
 
 import type { CompanyRole } from '@eccounting/shared';
-import { Trash2, X } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { ModalShell } from '@/components/ui/modal-shell';
 import { ApiError, apiFetch } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -80,8 +81,6 @@ export function UserMembershipModal({
     setCompanyId(availableCompanies[0]?.id ?? '');
   }, [open, availableCompanies]);
 
-  if (!open) return null;
-
   async function handleAdd(): Promise<void> {
     if (!companyId) return;
     setSaving(true);
@@ -116,110 +115,13 @@ export function UserMembershipModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        role="dialog"
-        aria-modal
-        aria-labelledby="user-membership-title"
-        className="w-full max-w-lg rounded-lg bg-white shadow-xl"
-      >
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 id="user-membership-title" className="text-base font-semibold uppercase tracking-wide text-slate-700">
-            Akses Klien — {userName}
-          </h2>
-          <button
-            type="button"
-            aria-label="Tutup"
-            onClick={onClose}
-            className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4 px-6 py-5">
-          <p className="text-sm text-slate-600">
-            Di v1, peran diatur global via Voyager. Di v2, akses diatur per klien (owner / akuntan / viewer).
-          </p>
-
-          {loading && <p className="text-sm text-muted-foreground">Memuat…</p>}
-
-          {!loading && (
-            <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
-              {memberships.map((item) => (
-                <li key={item.companyId} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{item.companyName}</p>
-                    <p className="text-xs text-slate-500">{ROLE_LABELS[item.role]}</p>
-                  </div>
-                  <button
-                    type="button"
-                    title="Hapus akses"
-                    disabled={saving}
-                    onClick={() => void handleRemove(item.companyId)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600 disabled:opacity-60"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-              {memberships.length === 0 && (
-                <li className="px-3 py-6 text-center text-sm text-slate-500">
-                  Belum punya akses ke klien manapun.
-                </li>
-              )}
-            </ul>
-          )}
-
-          {availableCompanies.length > 0 && (
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-              <p className="mb-2 text-sm font-medium text-slate-700">Tambah akses klien</p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <select
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  className="flex-1 rounded-md border border-input bg-white px-3 py-2 text-sm"
-                >
-                  {availableCompanies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as CompanyRole)}
-                  className="rounded-md border border-input bg-white px-3 py-2 text-sm"
-                >
-                  {(Object.keys(ROLE_LABELS) as CompanyRole[]).map((key) => (
-                    <option key={key} value={key}>
-                      {ROLE_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={saving || !companyId}
-                  onClick={() => void handleAdd()}
-                  className={cn(
-                    'rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600',
-                    'disabled:cursor-not-allowed disabled:opacity-60',
-                  )}
-                >
-                  Tambah
-                </button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end border-t border-border px-6 py-4">
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title={`Akses Klien — ${userName}`}
+      titleId="user-membership-title"
+      footer={
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -228,7 +130,90 @@ export function UserMembershipModal({
             Tutup
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Di v1, peran diatur global via Voyager. Di v2, akses diatur per klien (owner / akuntan /
+          viewer).
+        </p>
+
+        {loading && <p className="text-sm text-muted-foreground">Memuat…</p>}
+
+        {!loading && (
+          <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
+            {memberships.map((item) => (
+              <li key={item.companyId} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-900">{item.companyName}</p>
+                  <p className="text-xs text-slate-500">{ROLE_LABELS[item.role]}</p>
+                </div>
+                <button
+                  type="button"
+                  title="Hapus akses"
+                  disabled={saving}
+                  onClick={() => void handleRemove(item.companyId)}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600 disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+            {memberships.length === 0 && (
+              <li className="px-3 py-6 text-center text-sm text-slate-500">
+                Belum punya akses ke klien manapun.
+              </li>
+            )}
+          </ul>
+        )}
+
+        {availableCompanies.length > 0 && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-sm font-medium text-slate-700">Tambah akses klien</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-white px-3 py-2 text-sm"
+              >
+                {availableCompanies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as CompanyRole)}
+                className="rounded-md border border-input bg-white px-3 py-2 text-sm"
+              >
+                {(Object.keys(ROLE_LABELS) as CompanyRole[]).map((key) => (
+                  <option key={key} value={key}>
+                    {ROLE_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={saving || !companyId}
+                onClick={() => void handleAdd()}
+                className={cn(
+                  'rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600',
+                  'disabled:cursor-not-allowed disabled:opacity-60',
+                )}
+              >
+                Tambah
+              </button>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
       </div>
-    </div>
+    </ModalShell>
   );
 }
