@@ -10,6 +10,12 @@ import type {
   JournalDetailRow,
   JournalGroupedRow,
   JournalLineView,
+  ReverseJournalEntryInput,
+} from '@eccounting/shared';
+import {
+  ConflictError,
+  ErrorCode,
+  NotFoundError,
 } from '@eccounting/shared';
 import { and, asc, between, desc, eq, sql } from 'drizzle-orm';
 
@@ -36,6 +42,12 @@ export class JournalsService {
         importBatchId: journalEntries.importBatchId,
         totalDebit: sql<string>`COALESCE(SUM(${journalLines.debit}), 0)::text`.as('total_debit'),
         totalCredit: sql<string>`COALESCE(SUM(${journalLines.credit}), 0)::text`.as('total_credit'),
+        isReversed: sql<boolean>`
+          EXISTS (
+            SELECT 1 FROM ${journalEntries} rev
+            WHERE rev.reversal_of_id = ${journalEntries.id}
+          )
+        `.as('is_reversed'),
       })
       .from(journalEntries)
       .leftJoin(journalLines, eq(journalLines.journalEntryId, journalEntries.id))
@@ -208,6 +220,106 @@ export class JournalsService {
     }
   }
 
+  async reverseEntry(
+    companyId: bigint,
+    userId: bigint,
+    entryId: bigint,
+    input: ReverseJournalEntryInput,
+  ): Promise<{ id: string; postingNumber: string }> {
+    return this.db.withTenant(companyId, async (tx) => {
+      const [original] = await tx
+        .select()
+        .from(journalEntries)
+        .where(and(eq(journalEntries.id, entryId), eq(journalEntries.companyId, companyId)))
+        .limit(1);
+
+      if (!original) {
+        throw new NotFoundError(ErrorCode.JOURNAL_NOT_FOUND, `Jurnal ${entryId} tidak ditemukan`);
+      }
+
+      if (original.source === 'reversal') {
+        throw new ConflictError(
+          ErrorCode.JOURNAL_IMMUTABLE,
+          'Jurnal pembalik tidak bisa dihapus/dibalik lagi',
+        );
+      }
+
+      const [existingReversal] = await tx
+        .select({ id: journalEntries.id })
+        .from(journalEntries)
+        .where(eq(journalEntries.reversalOfId, entryId))
+        .limit(1);
+
+      if (existingReversal) {
+        throw new ConflictError(
+          ErrorCode.JOURNAL_ALREADY_REVERSED,
+          `Jurnal ${original.postingNumber} sudah dibalik`,
+        );
+      }
+
+      const originalLines = await tx
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.journalEntryId, entryId))
+        .orderBy(asc(journalLines.lineNo));
+
+      if (originalLines.length < 2) {
+        throw new ConflictError(
+          ErrorCode.JOURNAL_INSUFFICIENT_LINES,
+          'Jurnal tidak memiliki baris yang cukup untuk dibalik',
+        );
+      }
+
+      const postingDate = input.postingDate ?? new Date().toISOString().slice(0, 10);
+      const postingResult = await tx.execute<{ next_posting_number: string }>(
+        sql`SELECT next_posting_number(${companyId}, ${postingDate}::date) AS next_posting_number`,
+      );
+      const postingNumber = postingResult.rows[0]?.next_posting_number;
+      if (!postingNumber) {
+        throw new Error('Gagal generate posting number');
+      }
+
+      const reversalDescription =
+        input.reason.trim() ||
+        `Pembalikan jurnal ${original.postingNumber}${original.description ? `: ${original.description}` : ''}`;
+
+      const [reversalEntry] = await tx
+        .insert(journalEntries)
+        .values({
+          companyId,
+          postingNumber,
+          postingDate,
+          transactionDate: postingDate,
+          description: reversalDescription,
+          source: 'reversal',
+          reversalOfId: entryId,
+          createdBy: userId,
+        })
+        .returning();
+
+      if (!reversalEntry) throw new Error('Gagal membuat jurnal pembalik');
+
+      let lineNo = 1;
+      for (const line of originalLines) {
+        await tx.insert(journalLines).values({
+          journalEntryId: reversalEntry.id,
+          companyId,
+          accountId: line.accountId,
+          lineNo,
+          debit: line.credit,
+          credit: line.debit,
+          reference: line.reference,
+          description: line.description
+            ? `Reversal: ${line.description}`
+            : `Reversal ${original.postingNumber}`,
+        });
+        lineNo += 1;
+      }
+
+      return { id: String(reversalEntry.id), postingNumber: reversalEntry.postingNumber };
+    });
+  }
+
   private toGroupedRow(row: {
     id: bigint;
     postingNumber: string;
@@ -217,6 +329,7 @@ export class JournalsService {
     importBatchId: bigint | null;
     totalDebit: string;
     totalCredit: string;
+    isReversed: boolean;
   }): JournalGroupedRow {
     return {
       id: String(row.id),
@@ -228,6 +341,8 @@ export class JournalsService {
       totalDebit: row.totalDebit,
       totalCredit: row.totalCredit,
       isImported: row.importBatchId !== null || row.source === 'import',
+      isReversed: row.isReversed,
+      isReversal: row.source === 'reversal',
     };
   }
 }

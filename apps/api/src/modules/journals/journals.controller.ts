@@ -12,7 +12,7 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { createJournalEntrySchema, type CreateJournalEntryInput } from '@eccounting/shared';
+import { createJournalEntrySchema, reverseJournalEntrySchema, type CreateJournalEntryInput, type ReverseJournalEntryInput } from '@eccounting/shared';
 import type { FastifyRequest } from 'fastify';
 import { Readable } from 'node:stream';
 
@@ -98,6 +98,26 @@ export class JournalsController {
     @CurrentUser() user: AuthUserContext,
   ) {
     const result = await this.journals.createEntry(BigInt(companyId), user.userId, body);
+    return { data: result };
+  }
+
+  @Post(':entryId/reverse')
+  @ApiOperation({
+    summary: 'Batalkan jurnal via reversal entry (append-only, setara v2 menggantikan v1 delete)',
+  })
+  @UsePipes(new ZodValidationPipe(reverseJournalEntrySchema))
+  async reverse(
+    @Param('companyId') companyId: string,
+    @Param('entryId') entryId: string,
+    @Body() body: ReverseJournalEntryInput,
+    @CurrentUser() user: AuthUserContext,
+  ) {
+    const result = await this.journals.reverseEntry(
+      BigInt(companyId),
+      user.userId,
+      BigInt(entryId),
+      body,
+    );
     return { data: result };
   }
 
