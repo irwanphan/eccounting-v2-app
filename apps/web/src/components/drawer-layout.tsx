@@ -42,7 +42,7 @@ interface DrawerLayoutProps {
 
 const ADMIN_NAV: NavItem[] = [
   { href: '/companies', label: 'Klien' },
-  { href: '#', label: 'Pengguna', disabled: true },
+  { href: '/users', label: 'Pengguna' },
 ];
 
 const NO_CLIENT_TOOLTIP = 'Pilih klien terlebih dahulu';
