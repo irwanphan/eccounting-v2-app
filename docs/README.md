@@ -12,6 +12,7 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 | [`POSTGRESQL_RATIONALE.md`](./POSTGRESQL_RATIONALE.md) | Perbandingan PostgreSQL vs MySQL untuk aplikasi akuntansi (RLS, DEFERRABLE constraints, ekstensi) |
 | [`ERD.md`](./ERD.md) | Entity relationship diagram (Mermaid), sequence diagram posting/import/RLS, state machine period & import, penjelasan keputusan desain |
 | [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md) | Strategi & langkah ETL v1 (MySQL) → v2 (PostgreSQL), mapping tabel, reconciliation queries, timeline cutover |
+| [`JOURNAL_REVERSAL.md`](./JOURNAL_REVERSAL.md) | Pembatalan jurnal v2 (reversal vs v1 hard delete), API, UI, aturan bisnis, testing manual |
 
 ## Infra development (`docker-compose.yml`)
 
