@@ -10,6 +10,7 @@ import { defaultMonthDateRange, formatDisplayDate, formatIdrAmount } from '@/lib
 import { cn } from '@/lib/utils';
 
 import { JournalReverseModal } from './journal-reverse-modal';
+import { ModalShell } from '@/components/ui/modal-shell';
 
 type ViewMode = 'grouped' | 'detail';
 
@@ -347,52 +348,47 @@ export function JournalListPage(): JSX.Element {
 
         {/* Modal Lihat — setara v1 summary */}
         {viewEntryId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-lg border border-sky-300 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <h2 className="font-semibold">Jurnal {viewPostingNumber}</h2>
-                <button
-                  type="button"
-                  onClick={() => setViewEntryId(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="overflow-x-auto p-4">
-                <table className="w-full min-w-[700px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
-                      <th className="px-2 py-2">Tgl. Transaksi</th>
-                      <th className="px-2 py-2">Kode Akun</th>
-                      <th className="px-2 py-2">Referensi</th>
-                      <th className="px-2 py-2">Keterangan</th>
-                      <th className="px-2 py-2 text-right">Debet</th>
-                      <th className="px-2 py-2 text-right">Credit</th>
+          <ModalShell
+            open
+            onClose={() => setViewEntryId(null)}
+            title={`Jurnal ${viewPostingNumber}`}
+            titleId="journal-view-title"
+            maxWidthClass="max-w-4xl"
+            bodyClassName="p-0"
+          >
+            <div className="overflow-x-auto p-4">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                    <th className="px-2 py-2">Tgl. Transaksi</th>
+                    <th className="px-2 py-2">Kode Akun</th>
+                    <th className="px-2 py-2">Referensi</th>
+                    <th className="px-2 py-2">Keterangan</th>
+                    <th className="px-2 py-2 text-right">Debet</th>
+                    <th className="px-2 py-2 text-right">Credit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewLines.map((line) => (
+                    <tr key={line.id} className="border-b border-border/60">
+                      <td className="px-2 py-2">{line.transactionDate}</td>
+                      <td className="px-2 py-2">
+                        {line.accountCode} — {line.accountName}
+                      </td>
+                      <td className="px-2 py-2">{line.reference ?? '—'}</td>
+                      <td className="px-2 py-2">{line.description ?? '—'}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">
+                        {Number(line.debit) > 0 ? formatIdrAmount(line.debit) : '—'}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">
+                        {Number(line.credit) > 0 ? formatIdrAmount(line.credit) : '—'}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {viewLines.map((line) => (
-                      <tr key={line.id} className="border-b border-border/60">
-                        <td className="px-2 py-2">{line.transactionDate}</td>
-                        <td className="px-2 py-2">
-                          {line.accountCode} — {line.accountName}
-                        </td>
-                        <td className="px-2 py-2">{line.reference ?? '—'}</td>
-                        <td className="px-2 py-2">{line.description ?? '—'}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {Number(line.debit) > 0 ? formatIdrAmount(line.debit) : '—'}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {Number(line.credit) > 0 ? formatIdrAmount(line.credit) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </ModalShell>
         )}
 
         {pendingReverse && (

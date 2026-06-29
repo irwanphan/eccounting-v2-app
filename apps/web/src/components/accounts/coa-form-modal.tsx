@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { ApiError } from '@/lib/api-client';
 
+import { ModalShell } from '@/components/ui/modal-shell';
+
 export type CoaFormMode = 'create-root' | 'create-child' | 'edit';
 
 export interface CoaFormState {
@@ -112,21 +114,32 @@ export function CoaFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-base font-semibold uppercase tracking-wide text-slate-800">{title}</h2>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title={title}
+      titleId="coa-form-title"
+      footer={
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Tutup"
+            className="rounded-md bg-orange-500 px-5 py-2 text-sm font-medium text-white hover:bg-orange-600"
           >
-            ✕
+            Batal
+          </button>
+          <button
+            type="submit"
+            form="coa-form"
+            disabled={saving}
+            className="rounded-md bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {saving ? 'Menyimpan…' : 'Simpan'}
           </button>
         </div>
-
-        <form onSubmit={(e) => void handleFormSubmit(e)} className="space-y-4 px-6 py-5">
+      }
+    >
+      <form id="coa-form" onSubmit={(e) => void handleFormSubmit(e)} className="space-y-4">
           <div className="space-y-1">
             <label htmlFor="coa-category" className="text-sm font-medium text-slate-700">
               Kategori
@@ -220,26 +233,8 @@ export function CoaFormModal({
               Akun Laba Rugi Periode Berjalan
             </label>
           )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md bg-orange-500 px-5 py-2 text-sm font-medium text-white hover:bg-orange-600"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-md bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {saving ? 'Menyimpan…' : 'Simpan'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalShell>
   );
 }
 
@@ -261,18 +256,14 @@ export function CoaDeleteModal({
   if (!open || !account) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-        <div className="border-b border-border px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-800">Hapus Kode Akun</h2>
-        </div>
-        <div className="space-y-4 px-6 py-5 text-sm text-slate-600">
-          <p>
-            Yakin hapus kode akun <strong>{account.code} {account.name}</strong>?
-          </p>
-          <p>Hapus turunan terlebih dahulu jika akun ini memiliki sub-akun.</p>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      title="Hapus Kode Akun"
+      titleId="coa-delete-title"
+      maxWidthClass="max-w-md"
+      footer={
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -289,8 +280,15 @@ export function CoaDeleteModal({
             {deleting ? 'Menghapus…' : 'Hapus'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4 text-sm text-slate-600">
+        <p>
+          Yakin hapus kode akun <strong>{account.code} {account.name}</strong>?
+        </p>
+        <p>Hapus turunan terlebih dahulu jika akun ini memiliki sub-akun.</p>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 

@@ -1,3 +1,5 @@
+import { ModalShell } from '@/components/ui/modal-shell';
+
 interface ClientSelectModalProps {
   clientName: string;
   onConfirm: () => void;
@@ -10,25 +12,14 @@ export function ClientSelectModal({
   onCancel,
 }: ClientSelectModalProps): JSX.Element {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        role="dialog"
-        aria-modal
-        aria-labelledby="client-select-title"
-        className="w-full max-w-md rounded-lg bg-white shadow-xl"
-      >
-        <div className="border-b border-border px-6 py-4">
-          <h2 id="client-select-title" className="text-base font-semibold uppercase tracking-wide text-slate-700">
-            Konfirmasi Pilih Klien
-          </h2>
-        </div>
-        <div className="px-6 py-5">
-          <p className="text-sm text-slate-600">
-            Pilih klien &quot;<strong className="font-semibold text-slate-900">{clientName}</strong>&quot; untuk
-            dikelola?
-          </p>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+    <ModalShell
+      open
+      onClose={onCancel}
+      title="Konfirmasi Pilih Klien"
+      titleId="client-select-title"
+      maxWidthClass="max-w-md"
+      footer={
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
@@ -44,7 +35,12 @@ export function ClientSelectModal({
             Ya
           </button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <p className="text-sm text-slate-600">
+        Pilih klien &quot;<strong className="font-semibold text-slate-900">{clientName}</strong>&quot;
+        untuk dikelola?
+      </p>
+    </ModalShell>
   );
 }
