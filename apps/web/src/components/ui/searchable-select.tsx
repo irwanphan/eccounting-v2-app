@@ -40,6 +40,8 @@ export interface SearchableSelectProps {
   triggerClassName?: string;
   /** Label di atas trigger (opsional) */
   label?: ReactNode;
+  /** Lebar minimum panel dropdown (px); bisa lebih lebar dari trigger agar opsi tidak terpotong. */
+  dropdownMinWidth?: number;
 }
 
 interface DropdownLayout {
@@ -58,17 +60,27 @@ function normalizeSearch(text: string): string {
   return text.trim().toLowerCase();
 }
 
-function computeDropdownLayout(trigger: HTMLElement): DropdownLayout {
+function computeDropdownLayout(trigger: HTMLElement, dropdownMinWidth?: number): DropdownLayout {
   const rect = trigger.getBoundingClientRect();
   const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_GAP;
   const spaceAbove = rect.top - VIEWPORT_GAP;
   const openUpward = spaceBelow < LIST_MAX_HEIGHT + SEARCH_ROW_HEIGHT && spaceAbove > spaceBelow;
 
+  const viewportMaxWidth = window.innerWidth - VIEWPORT_GAP * 2;
+  const width = Math.min(
+    viewportMaxWidth,
+    Math.max(rect.width, dropdownMinWidth ?? rect.width),
+  );
+  let left = rect.left;
+  if (left + width > window.innerWidth - VIEWPORT_GAP) {
+    left = Math.max(VIEWPORT_GAP, window.innerWidth - VIEWPORT_GAP - width);
+  }
+
   if (openUpward) {
     const maxListHeight = Math.min(LIST_MAX_HEIGHT, Math.max(80, spaceAbove - SEARCH_ROW_HEIGHT));
     return {
-      left: rect.left,
-      width: rect.width,
+      left,
+      width,
       bottom: window.innerHeight - rect.top + VIEWPORT_GAP,
       maxListHeight,
     };
@@ -76,8 +88,8 @@ function computeDropdownLayout(trigger: HTMLElement): DropdownLayout {
 
   const maxListHeight = Math.min(LIST_MAX_HEIGHT, Math.max(80, spaceBelow - SEARCH_ROW_HEIGHT));
   return {
-    left: rect.left,
-    width: rect.width,
+    left,
+    width,
     top: rect.bottom + VIEWPORT_GAP,
     maxListHeight,
   };
@@ -97,6 +109,7 @@ export function SearchableSelect({
   className,
   triggerClassName,
   label,
+  dropdownMinWidth,
 }: SearchableSelectProps): JSX.Element {
   const autoId = useId();
   const controlId = id ?? autoId;
@@ -139,8 +152,8 @@ export function SearchableSelect({
 
   const updateDropdownLayout = useCallback(() => {
     if (!triggerRef.current) return;
-    setDropdownLayout(computeDropdownLayout(triggerRef.current));
-  }, []);
+    setDropdownLayout(computeDropdownLayout(triggerRef.current, dropdownMinWidth));
+  }, [dropdownMinWidth]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -339,7 +352,7 @@ export function SearchableSelect({
                     )}
                     aria-hidden
                   />
-                  <span className="truncate">{opt.label}</span>
+                  <span className="whitespace-nowrap">{opt.label}</span>
                 </li>
               );
             })

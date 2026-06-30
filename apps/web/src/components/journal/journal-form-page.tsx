@@ -196,8 +196,8 @@ export function JournalFormPage(): JSX.Element {
 
   return (
     <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-0.5">
+      <div className="">
+        <label className="flex flex-col gap-0.5 w-48">
           <span className="text-sm font-medium text-slate-700">Tanggal Form</span>
           <input
             type="date"
@@ -206,17 +206,6 @@ export function JournalFormPage(): JSX.Element {
             className="w-full rounded-md border border-input px-3 py-2 text-sm"
           />
         </label>
-        <div className="md:col-span-2">
-          <label className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-slate-700">Catatan</span>
-            <textarea
-              rows={3}
-              value={draft.note}
-              onChange={(e) => setDraft((prev) => ({ ...prev, note: e.target.value }))}
-              className="w-full rounded-md border border-input px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-sky-300">
@@ -224,13 +213,13 @@ export function JournalFormPage(): JSX.Element {
           <thead>
             <tr className="border-b bg-slate-50 text-left text-xs uppercase text-slate-600">
               <th className="px-3 py-2">No</th>
-              <th className="px-3 py-2">Tgl</th>
+              <th className="px-3 py-2 w-40">Tgl</th>
               <th className="px-3 py-2">Kode</th>
               <th className="px-3 py-2">Nama Akun</th>
-              <th className="px-3 py-2">Referensi</th>
+              <th className="px-3 py-2 w-40 whitespace-nowrap">Referensi</th>
               <th className="px-3 py-2">Keterangan</th>
-              <th className="px-3 py-2 text-right">Debet</th>
-              <th className="px-3 py-2 text-right">Kredit</th>
+              <th className="px-3 py-2 w-40 whitespace-nowrap">Debet</th>
+              <th className="px-3 py-2 w-40 whitespace-nowrap">Kredit</th>
               <th className="px-3 py-2">Aksi</th>
             </tr>
           </thead>
@@ -285,71 +274,90 @@ export function JournalFormPage(): JSX.Element {
               <td className="px-3 py-2 text-right tabular-nums">{formatIdrAmount(String(totals.credit))}</td>
               <td />
             </tr>
+
+            <tr>
+              <td className="px-3 py-2 text-center text-muted-foreground">
+
+              </td>
+              <td className="px-3 py-2">
+                <label className="flex flex-col gap-0.5 w-40">
+                  <span className="text-xs font-medium text-slate-600">Tgl Transaksi</span>
+                  <input
+                    type="date"
+                    value={lineDate}
+                    onChange={(e) => setLineDate(e.target.value)}
+                    className="rounded-md border border-input px-3 py-2 text-sm w-40"
+                  />
+                </label>
+              </td>
+              <td colSpan={2} className="px-3 py-2">
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-slate-600">Kode Akun</span>
+                  <SearchableSelect
+                    options={accountOptions}
+                    value={lineAccountId}
+                    onChange={setLineAccountId}
+                    placeholder="Pilih akun…"
+                    searchPlaceholder="Cari kode atau nama akun…"
+                    loading={loadingAccounts}
+                    dropdownMinWidth={480}
+                  />
+                </label>
+              </td>
+              <td className="px-3 py-2">
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-slate-600">Referensi</span>
+                  <input
+                    value={lineReference}
+                    onChange={(e) => setLineReference(e.target.value)}
+                    className="rounded-md border border-input px-3 py-2 text-sm w-40"
+                  />
+                </label>
+              </td>
+              <td className="px-3 py-2">
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium text-slate-600">Keterangan</span>
+                  <input
+                    value={lineDescription}
+                    onChange={(e) => setLineDescription(e.target.value)}
+                    className="rounded-md border border-input px-3 py-2 text-sm w-40"
+                  />
+                </label>
+              </td>
+              <td className="px-3 py-2">
+                <label className="flex flex-col gap-0.5 w-40">
+                  <span className="text-xs font-medium text-slate-600">Debet</span>
+                  <input
+                    value={lineDebit}
+                    onChange={(e) => setLineDebit(e.target.value)}
+                    className="w-40 rounded-md border border-input px-3 py-2 text-sm"
+                  />
+                </label>
+              </td>
+              <td className="px-3 py-2">
+                <label className="flex flex-col gap-0.5 w-40">
+                  <span className="text-xs font-medium text-slate-600">Kredit</span>
+                  <input
+                    value={lineCredit}
+                    onChange={(e) => setLineCredit(e.target.value)}
+                    className="w-40 rounded-md border border-input px-3 py-2 text-sm"
+                  />
+                </label>
+              </td>
+              <td className="px-3 py-2">
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={addLine}
+                    className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+                  >
+                    Tambah Baris
+                  </button>
+                </div>
+              </td>
+            </tr>
           </tfoot>
         </table>
-      </div>
-
-      <div className="mt-6 grid gap-3 rounded-lg border border-dashed border-slate-300 p-4 md:grid-cols-2 xl:grid-cols-4">
-        <label className="space-y-1 xl:col-span-2">
-          <span className="text-xs font-medium text-slate-600">Kode Akun</span>
-          <SearchableSelect
-            options={accountOptions}
-            value={lineAccountId}
-            onChange={setLineAccountId}
-            placeholder="Pilih akun…"
-            loading={loadingAccounts}
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-slate-600">Tgl Transaksi</span>
-          <input
-            type="date"
-            value={lineDate}
-            onChange={(e) => setLineDate(e.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-slate-600">Referensi</span>
-          <input
-            value={lineReference}
-            onChange={(e) => setLineReference(e.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1 xl:col-span-2">
-          <span className="text-xs font-medium text-slate-600">Keterangan</span>
-          <input
-            value={lineDescription}
-            onChange={(e) => setLineDescription(e.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-slate-600">Debet</span>
-          <input
-            value={lineDebit}
-            onChange={(e) => setLineDebit(e.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-slate-600">Kredit</span>
-          <input
-            value={lineCredit}
-            onChange={(e) => setLineCredit(e.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
-          />
-        </label>
-        <div className="flex items-end xl:col-span-4">
-          <button
-            type="button"
-            onClick={addLine}
-            className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
-          >
-            Tambah Baris
-          </button>
-        </div>
       </div>
 
       {error && (
@@ -358,22 +366,36 @@ export function JournalFormPage(): JSX.Element {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void save()}
-          className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-60"
-        >
-          {saving ? 'Menyimpan…' : 'Simpan'}
-        </button>
-        <button
-          type="button"
-          onClick={cancel}
-          className="rounded-md bg-orange-400 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500"
-        >
-          Batal
-        </button>
+      <div className="mt-6 flex gap-4 w-full">
+        <div className="flex flex-col gap-0.5 w-full">
+          <label className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-slate-700">Catatan</span>
+            <textarea
+              rows={3}
+              value={draft.note}
+              onChange={(e) => setDraft((prev) => ({ ...prev, note: e.target.value }))}
+              className="w-full max-w-3xl rounded-md border border-input px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <div className="mt-6 flex gap-2 items-end">
+          <button
+            type="button"
+            onClick={cancel}
+            className="rounded-md bg-orange-400 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 h-10"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save()}
+            className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-60 h-10"
+          >
+            {saving ? 'Menyimpan…' : 'Simpan'}
+          </button>
+        </div>
       </div>
     </div>
   );
