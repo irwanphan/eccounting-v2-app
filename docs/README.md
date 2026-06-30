@@ -12,6 +12,7 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 | [`POSTGRESQL_RATIONALE.md`](./POSTGRESQL_RATIONALE.md) | Perbandingan PostgreSQL vs MySQL untuk aplikasi akuntansi (RLS, DEFERRABLE constraints, ekstensi) |
 | [`ERD.md`](./ERD.md) | Entity relationship diagram (Mermaid), sequence diagram posting/import/RLS, state machine period & import, penjelasan keputusan desain |
 | [`MIGRATION_FROM_V1.md`](./MIGRATION_FROM_V1.md) | Strategi & langkah ETL v1 (MySQL) → v2 (PostgreSQL), mapping tabel, reconciliation queries, timeline cutover |
+| [`DEVOPS_MIGRATION_GUIDE.md`](./DEVOPS_MIGRATION_GUIDE.md) | **Panduan operasional DevOps**: deploy v2 paralel v1, Docker di server sama, checklist fase 0–5, command CLI, backup/rollback |
 | [`JOURNAL_REVERSAL.md`](./JOURNAL_REVERSAL.md) | Pembatalan jurnal v2 (reversal vs v1 hard delete), API, UI, aturan bisnis, testing manual |
 
 ## Infra development (`docker-compose.yml`)
@@ -28,7 +29,7 @@ Folder ini berisi dokumentasi desain & strategi untuk rebuild Eccounting v2.
 
 Data container persist di named volumes: `postgres_data`, `redis_data`, `minio_data`.
 
-> **Production:** Redis dan object storage tidak wajib di-container — bisa pakai managed service (Upstash, Cloudflare R2, dll.). Detail opsi deploy akan ditambahkan di `DEPLOYMENT.md`.
+> **Production:** Redis dan object storage tidak wajib di-container — bisa pakai managed service (Upstash, Cloudflare R2, dll.). Panduan deploy & migrasi untuk DevOps: [`DEVOPS_MIGRATION_GUIDE.md`](./DEVOPS_MIGRATION_GUIDE.md).
 
 Retensi file import Excel: lihat [`ERD.md` §5.1](./ERD.md) — metadata permanen di `import_batches`, object file sementara di MinIO/S3.
 

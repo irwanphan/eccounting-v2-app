@@ -167,6 +167,7 @@ Hasil → `apps/web/src/generated/api-types.ts`.
 | Kenapa PostgreSQL | [`docs/POSTGRESQL_RATIONALE.md`](./docs/POSTGRESQL_RATIONALE.md) |
 | API style (REST + OpenAPI) | [`docs/API_STYLE.md`](./docs/API_STYLE.md) |
 | Migrasi data v1 → v2 | [`docs/MIGRATION_FROM_V1.md`](./docs/MIGRATION_FROM_V1.md) |
+| Panduan deploy & migrasi (DevOps) | [`docs/DEVOPS_MIGRATION_GUIDE.md`](./docs/DEVOPS_MIGRATION_GUIDE.md) |
 | Indeks lengkap dokumen | [`docs/README.md`](./docs/README.md) |
 
 ---
