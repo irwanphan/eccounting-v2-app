@@ -11,6 +11,11 @@ import type { ApiErrorBody, ErrorCodeValue } from '@eccounting/shared';
 
 import { getAccessToken } from './auth-store';
 import { getSelectedCompany } from './company-store';
+import {
+  redirectToSessionExpired,
+  shouldHandleAsSessionExpired,
+  waitForSessionRedirect,
+} from './session-expired';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
@@ -72,9 +77,14 @@ export async function apiFetch<T = unknown>(
 
   if (!response.ok) {
     const errBody = json as ApiErrorBody | undefined;
+    const code = errBody?.error?.code ?? 'UNKNOWN';
+    if (shouldHandleAsSessionExpired(response.status, code, Boolean(token))) {
+      redirectToSessionExpired();
+      return waitForSessionRedirect();
+    }
     throw new ApiError(
       response.status,
-      errBody?.error?.code ?? 'UNKNOWN',
+      code,
       errBody?.error?.message ?? response.statusText,
       errBody?.error?.details,
       errBody?.error?.requestId,
@@ -125,9 +135,14 @@ export async function apiDownload(
       json = undefined;
     }
     const errBody = json as ApiErrorBody | undefined;
+    const code = errBody?.error?.code ?? 'UNKNOWN';
+    if (shouldHandleAsSessionExpired(response.status, code, Boolean(token))) {
+      redirectToSessionExpired();
+      return waitForSessionRedirect();
+    }
     throw new ApiError(
       response.status,
-      errBody?.error?.code ?? 'UNKNOWN',
+      code,
       errBody?.error?.message ?? response.statusText,
       errBody?.error?.details,
       errBody?.error?.requestId,

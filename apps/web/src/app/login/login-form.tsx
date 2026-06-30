@@ -2,7 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginInput } from '@eccounting/shared';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { saveAuthTokens } from '@/lib/auth-store';
@@ -15,6 +16,17 @@ interface LoginResponse {
 }
 
 export function LoginForm(): JSX.Element {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Memuat…</p>}>
+      <LoginFormInner />
+    </Suspense>
+  );
+}
+
+function LoginFormInner(): JSX.Element {
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get('expired') === '1';
+  const returnTo = searchParams.get('returnTo');
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -34,7 +46,11 @@ export function LoginForm(): JSX.Element {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       });
-      window.location.href = '/companies';
+      const safeReturn =
+        returnTo && returnTo.startsWith('/') && !returnTo.startsWith('/login')
+          ? returnTo
+          : '/companies';
+      window.location.href = safeReturn;
     } catch (err) {
       if (err instanceof ApiError) {
         setServerError(err.message);
@@ -93,6 +109,12 @@ export function LoginForm(): JSX.Element {
           )}
         </div>
       </div>
+
+      {sessionExpired && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Sesi Anda telah berakhir. Silakan login ulang untuk melanjutkan.
+        </div>
+      )}
 
       {serverError && (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
