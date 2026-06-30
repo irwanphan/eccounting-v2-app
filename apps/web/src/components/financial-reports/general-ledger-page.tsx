@@ -133,7 +133,7 @@ export function GeneralLedgerPage(): JSX.Element {
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
-          <label className="space-y-1">
+          <label className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Tanggal</span>
             <input
               type="date"
@@ -142,9 +142,8 @@ export function GeneralLedgerPage(): JSX.Element {
               className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
             />
           </label>
-          <span className="pb-2 text-sm text-muted-foreground">sampai dengan</span>
-          <label className="space-y-1">
-            <span className="text-xs text-muted-foreground">&nbsp;</span>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">sampai dengan</span>
             <input
               type="date"
               value={dateEnd}

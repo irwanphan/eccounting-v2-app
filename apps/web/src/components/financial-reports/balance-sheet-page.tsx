@@ -8,6 +8,8 @@ import { ApiError, apiDownload, apiFetch } from '@/lib/api-client';
 import { getSelectedCompany } from '@/lib/company-store';
 import { defaultMonth, formatIdrAmount } from '@/lib/format-idr';
 
+import { MonthYearSelect } from './month-year-select';
+
 interface BalanceSheetResponse {
   data: BalanceSheetReport;
 }
@@ -68,18 +70,7 @@ export function BalanceSheetPage(): JSX.Element {
     <>
       <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1">
-            <label htmlFor="month" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Bulan
-            </label>
-            <input
-              id="month"
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="block rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
-            />
-          </div>
+          <MonthYearSelect idPrefix="balance-sheet" value={month} onChange={setMonth} />
           <button
             type="button"
             onClick={() => void loadReport()}

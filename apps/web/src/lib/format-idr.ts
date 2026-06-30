@@ -8,10 +8,33 @@ export function formatIdrAmount(value: string | number): string {
   }).format(num);
 }
 
-/** Default bulan berjalan (format input type=month YYYY-MM) */
+/** Default bulan berjalan (format YYYY-MM) */
 export function defaultMonth(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return joinMonth(now.getFullYear(), now.getMonth() + 1);
+}
+
+export function splitMonth(value: string): { year: number; month: number } {
+  const [y, m] = value.split('-');
+  const now = new Date();
+  const year = Number(y) || now.getFullYear();
+  const month = Number(m) || now.getMonth() + 1;
+  return { year, month: Math.min(12, Math.max(1, month)) };
+}
+
+export function joinMonth(year: number, month: number): string {
+  const safeMonth = Math.min(12, Math.max(1, month));
+  return `${year}-${String(safeMonth).padStart(2, '0')}`;
+}
+
+/** Tahun untuk dropdown laporan — default ±15 tahun dari tahun berjalan */
+export function buildYearOptions(span = 15): number[] {
+  const current = new Date().getFullYear();
+  const years: number[] = [];
+  for (let y = current - span; y <= current + 1; y += 1) {
+    years.push(y);
+  }
+  return years.reverse();
 }
 
 /** YYYY-MM → label "Jan 2025" */
