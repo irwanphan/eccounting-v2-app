@@ -6,6 +6,7 @@ import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { SelectedCompanyBadge } from '@/components/selected-company-badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hasSelectedCompany } from '@/lib/company-store';
 import { logout } from '@/lib/logout';
 import { cn } from '@/lib/utils';
@@ -107,6 +108,7 @@ export function DrawerLayout({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [companySelected, setCompanySelected] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     setCompanySelected(hasSelectedCompany());
@@ -195,13 +197,27 @@ export function DrawerLayout({
           type="button"
           onClick={() => {
             closeDrawer();
-            logout();
+            setLogoutConfirmOpen(true);
           }}
           className="mb-1 inline-block w-fit whitespace-nowrap border-r-8 border-sky-300 bg-sky-500/80 py-0 pl-6 pr-4 text-left text-base font-normal capitalize leading-[44px] text-white shadow-md transition hover:border-yellow-300 focus:border-yellow-300 active:border-yellow-400"
         >
           Logout
         </button>
       </nav>
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        title="Logout"
+        message="Yakin ingin keluar dari aplikasi?"
+        confirmLabel="Logout"
+        cancelLabel="Batal"
+        variant="danger"
+        onConfirm={() => {
+          setLogoutConfirmOpen(false);
+          logout();
+        }}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
 
       {/* Main content — geser saat drawer terbuka (setara v1) */}
       <div
