@@ -57,7 +57,7 @@ export function ModalShell({
           aria-modal
           aria-labelledby={titleId}
           className={cn(
-            'pointer-events-auto flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-lg bg-white shadow-xl',
+            'pointer-events-auto flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-lg bg-white shadow-xl',
             maxWidthClass,
           )}
         >
@@ -85,7 +85,9 @@ export function ModalShell({
           </div>
 
           {bottomBar && (
-            <div className="shrink-0 border-t border-border bg-slate-50 px-6 py-4">{bottomBar}</div>
+            <div className="relative z-20 shrink-0 overflow-visible border-t border-border bg-slate-50 px-6 py-4">
+              {bottomBar}
+            </div>
           )}
 
           {footer && <div className="shrink-0 border-t border-border px-6 py-4">{footer}</div>}

@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import { cn } from '@/lib/utils';
 
@@ -41,8 +42,45 @@ export interface SearchableSelectProps {
   label?: ReactNode;
 }
 
+interface DropdownLayout {
+  left: number;
+  width: number;
+  maxListHeight: number;
+  top?: number;
+  bottom?: number;
+}
+
+const LIST_MAX_HEIGHT = 240;
+const SEARCH_ROW_HEIGHT = 41;
+const VIEWPORT_GAP = 8;
+
 function normalizeSearch(text: string): string {
   return text.trim().toLowerCase();
+}
+
+function computeDropdownLayout(trigger: HTMLElement): DropdownLayout {
+  const rect = trigger.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_GAP;
+  const spaceAbove = rect.top - VIEWPORT_GAP;
+  const openUpward = spaceBelow < LIST_MAX_HEIGHT + SEARCH_ROW_HEIGHT && spaceAbove > spaceBelow;
+
+  if (openUpward) {
+    const maxListHeight = Math.min(LIST_MAX_HEIGHT, Math.max(80, spaceAbove - SEARCH_ROW_HEIGHT));
+    return {
+      left: rect.left,
+      width: rect.width,
+      bottom: window.innerHeight - rect.top + VIEWPORT_GAP,
+      maxListHeight,
+    };
+  }
+
+  const maxListHeight = Math.min(LIST_MAX_HEIGHT, Math.max(80, spaceBelow - SEARCH_ROW_HEIGHT));
+  return {
+    left: rect.left,
+    width: rect.width,
+    top: rect.bottom + VIEWPORT_GAP,
+    maxListHeight,
+  };
 }
 
 export function SearchableSelect({
@@ -66,12 +104,16 @@ export function SearchableSelect({
   const searchId = `${controlId}-search`;
 
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [dropdownLayout, setDropdownLayout] = useState<DropdownLayout | null>(null);
 
   const selected = useMemo(
     () => options.find((opt) => opt.value === value) ?? null,
@@ -95,10 +137,16 @@ export function SearchableSelect({
     [filtered],
   );
 
+  const updateDropdownLayout = useCallback(() => {
+    if (!triggerRef.current) return;
+    setDropdownLayout(computeDropdownLayout(triggerRef.current));
+  }, []);
+
   const close = useCallback(() => {
     setOpen(false);
     setQuery('');
     setHighlightIndex(0);
+    setDropdownLayout(null);
   }, []);
 
   const openDropdown = useCallback(() => {
@@ -131,19 +179,40 @@ export function SearchableSelect({
   );
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
+    updateDropdownLayout();
     const timer = window.setTimeout(() => searchRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
-  }, [open]);
+  }, [open, updateDropdownLayout]);
 
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: MouseEvent): void {
-      if (!rootRef.current?.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      close();
     }
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [close, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onReposition(): void {
+      updateDropdownLayout();
+    }
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  }, [open, updateDropdownLayout]);
 
   useEffect(() => {
     if (highlightIndex >= selectableIndices.length) {
@@ -193,13 +262,98 @@ export function SearchableSelect({
     ? 'Memuat…'
     : selected?.label ?? (options.length === 0 ? emptyMessage : placeholder);
 
+  const dropdownPanel =
+    open && dropdownLayout ? (
+      <div
+        ref={panelRef}
+        style={{
+          position: 'fixed',
+          left: dropdownLayout.left,
+          width: dropdownLayout.width,
+          top: dropdownLayout.top,
+          bottom: dropdownLayout.bottom,
+          zIndex: 60,
+        }}
+        className="overflow-hidden rounded-md border border-border bg-white shadow-lg"
+      >
+        <div className="flex items-center gap-2 border-b px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <input
+            ref={searchRef}
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setHighlightIndex(0);
+            }}
+            onKeyDown={onSearchKeyDown}
+            placeholder={searchPlaceholder}
+            aria-controls={listboxId}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-labelledby={controlId}
+          className="overflow-y-auto py-1"
+          style={{ maxHeight: dropdownLayout.maxListHeight }}
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-muted-foreground">{noResultsMessage}</li>
+          ) : (
+            filtered.map((opt, index) => {
+              const selectablePos = selectableIndices.indexOf(index);
+              const isHighlighted = selectablePos === highlightIndex;
+              const isSelected = opt.value === value;
+
+              return (
+                <li
+                  key={opt.value}
+                  data-index={index}
+                  role="option"
+                  aria-selected={isSelected}
+                  aria-disabled={opt.disabled || undefined}
+                  onMouseEnter={() => {
+                    if (!opt.disabled && selectablePos >= 0) setHighlightIndex(selectablePos);
+                  }}
+                  onClick={() => {
+                    if (!opt.disabled) onChange(opt.value);
+                    close();
+                  }}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm',
+                    opt.disabled && 'cursor-not-allowed opacity-50',
+                    isHighlighted && 'bg-sky-100',
+                    isSelected && !isHighlighted && 'bg-slate-50',
+                  )}
+                  style={{ paddingLeft: `${12 + (opt.indent ?? 0) * 12}px` }}
+                >
+                  <Check
+                    className={cn(
+                      'h-4 w-4 shrink-0 text-sky-600',
+                      isSelected ? 'opacity-100' : 'opacity-0',
+                    )}
+                    aria-hidden
+                  />
+                  <span className="truncate">{opt.label}</span>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      </div>
+    ) : null;
+
   return (
     <div ref={rootRef} className={cn('relative w-full', className)}>
-      {label && (
-        <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
-      )}
+      {label && <span className="mb-1 block text-xs text-muted-foreground">{label}</span>}
 
       <button
+        ref={triggerRef}
         type="button"
         id={controlId}
         aria-haspopup="listbox"
@@ -223,75 +377,7 @@ export function SearchableSelect({
         />
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-white shadow-lg">
-          <div className="flex items-center gap-2 border-b px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <input
-              ref={searchRef}
-              id={searchId}
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setHighlightIndex(0);
-              }}
-              onKeyDown={onSearchKeyDown}
-              placeholder={searchPlaceholder}
-              aria-controls={listboxId}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <ul
-            ref={listRef}
-            id={listboxId}
-            role="listbox"
-            aria-labelledby={controlId}
-            className="max-h-60 overflow-y-auto py-1"
-          >
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground">{noResultsMessage}</li>
-            ) : (
-              filtered.map((opt, index) => {
-                const selectablePos = selectableIndices.indexOf(index);
-                const isHighlighted = selectablePos === highlightIndex;
-                const isSelected = opt.value === value;
-
-                return (
-                  <li
-                    key={opt.value}
-                    data-index={index}
-                    role="option"
-                    aria-selected={isSelected}
-                    aria-disabled={opt.disabled || undefined}
-                    onMouseEnter={() => {
-                      if (!opt.disabled && selectablePos >= 0) setHighlightIndex(selectablePos);
-                    }}
-                    onClick={() => {
-                      if (!opt.disabled) onChange(opt.value);
-                      close();
-                    }}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm',
-                      opt.disabled && 'cursor-not-allowed opacity-50',
-                      isHighlighted && 'bg-sky-100',
-                      isSelected && !isHighlighted && 'bg-slate-50',
-                    )}
-                    style={{ paddingLeft: `${12 + (opt.indent ?? 0) * 12}px` }}
-                  >
-                    <Check
-                      className={cn('h-4 w-4 shrink-0 text-sky-600', isSelected ? 'opacity-100' : 'opacity-0')}
-                      aria-hidden
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
-      )}
+      {mounted && dropdownPanel ? createPortal(dropdownPanel, document.body) : null}
     </div>
   );
 }

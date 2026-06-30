@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ModalShell } from '@/components/ui/modal-shell';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { ApiError, apiFetch } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +76,15 @@ export function UserMembershipModal({
     const assigned = new Set(memberships.map((m) => m.companyId));
     return companies.filter((c) => !assigned.has(c.id));
   }, [companies, memberships]);
+
+  const companySelectOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      availableCompanies.map((company) => ({
+        value: company.id,
+        label: company.name,
+      })),
+    [availableCompanies],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -171,17 +181,16 @@ export function UserMembershipModal({
             <div className="flex min-w-0 flex-col gap-2">
               <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
-                  <select
+                  <SearchableSelect
+                    options={companySelectOptions}
                     value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    className="w-full max-w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
-                  >
-                    {availableCompanies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCompanyId}
+                    disabled={saving}
+                    placeholder="Pilih klien…"
+                    searchPlaceholder="Cari nama klien…"
+                    emptyMessage="Tidak ada klien tersedia"
+                    noResultsMessage="Klien tidak ditemukan"
+                  />
                 </div>
                 <select
                   value={role}
