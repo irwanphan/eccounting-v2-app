@@ -305,6 +305,19 @@ function buildPageNumbers(current: number, total: number): Array<number | '…'>
 }
 
 export async function fetchCompanies(): Promise<CompanyListItem[]> {
+  const rows = await apiFetch<Array<Record<string, unknown>>>('/companies');
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    address: row.address ? String(row.address) : null,
+    phone: row.phone ? String(row.phone) : null,
+    email: row.email ? String(row.email) : null,
+    legacyV1ClientId: row.legacyV1ClientId ? String(row.legacyV1ClientId) : null,
+  }));
+}
+
+/** Semua klien di firm — hanya untuk admin (mis. kelola membership pengguna). */
+export async function fetchAllCompanies(): Promise<CompanyListItem[]> {
   const rows = await apiFetch<Array<Record<string, unknown>>>('/companies?all=true');
   return rows.map((row) => ({
     id: String(row.id),

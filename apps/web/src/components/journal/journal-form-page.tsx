@@ -80,8 +80,12 @@ export function JournalFormPage(): JSX.Element {
         `/companies/${companyId}/accounts/tree`,
       );
       setAccountOptions(flattenPostableAccounts(res.data.tree));
-    } catch {
+      setError(null);
+    } catch (err) {
       setAccountOptions([]);
+      if (err instanceof ApiError) {
+        setError(err.message);
+      }
     } finally {
       setLoadingAccounts(false);
     }
@@ -193,7 +197,7 @@ export function JournalFormPage(): JSX.Element {
   return (
     <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-1">
+        <label className="flex flex-col gap-0.5">
           <span className="text-sm font-medium text-slate-700">Tanggal Form</span>
           <input
             type="date"
@@ -203,7 +207,7 @@ export function JournalFormPage(): JSX.Element {
           />
         </label>
         <div className="md:col-span-2">
-          <label className="space-y-1">
+          <label className="flex flex-col gap-0.5">
             <span className="text-sm font-medium text-slate-700">Catatan</span>
             <textarea
               rows={3}

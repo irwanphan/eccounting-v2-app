@@ -4,6 +4,7 @@ import type { CompanyRole } from '@eccounting/shared';
 import { Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { fetchAllCompanies } from '@/components/companies/client-list-page';
 import { ModalShell } from '@/components/ui/modal-shell';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { ApiError, apiFetch } from '@/lib/api-client';
@@ -55,14 +56,14 @@ export function UserMembershipModal({
     setError(null);
     Promise.all([
       apiFetch<{ data: UserMembershipItem[] }>(`/users/${userId}/memberships`),
-      apiFetch<Array<Record<string, unknown>>>('/companies?all=true'),
+      fetchAllCompanies(),
     ])
       .then(([membershipRes, companyRows]) => {
         setMemberships(membershipRes.data);
         setCompanies(
           companyRows.map((row) => ({
-            id: String(row.id),
-            name: String(row.name),
+            id: row.id,
+            name: row.name,
           })),
         );
       })

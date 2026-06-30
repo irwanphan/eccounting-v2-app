@@ -22,9 +22,8 @@ export function shouldHandleAsSessionExpired(
   code: ErrorCodeValue | 'UNKNOWN' | undefined,
   hadAuthToken: boolean,
 ): boolean {
-  if (status !== 401) return false;
-  if (isSessionExpiredCode(code)) return true;
-  return hadAuthToken && code !== 'AUTH_INVALID_CREDENTIALS';
+  if (status !== 401 || !hadAuthToken) return false;
+  return isSessionExpiredCode(code);
 }
 
 /**
