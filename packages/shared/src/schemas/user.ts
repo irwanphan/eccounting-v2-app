@@ -54,6 +54,14 @@ export const userMembershipItemSchema = z.object({
   role: companyRoleSchema,
 });
 
+export const addAllUserMembershipsSchema = z.object({
+  role: companyRoleSchema,
+});
+
+export const bulkMembershipResultSchema = z.object({
+  count: z.number().int().nonnegative(),
+});
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -64,4 +72,6 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type UserListItem = z.infer<typeof userListItemSchema>;
 export type UserMembershipItem = z.infer<typeof userMembershipItemSchema>;
+export type AddAllUserMembershipsInput = z.infer<typeof addAllUserMembershipsSchema>;
+export type BulkMembershipResult = z.infer<typeof bulkMembershipResultSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

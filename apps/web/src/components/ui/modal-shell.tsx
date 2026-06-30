@@ -12,6 +12,8 @@ interface ModalShellProps {
   title: ReactNode;
   titleId?: string;
   children: ReactNode;
+  /** Fixed strip between scrollable body and footer (e.g. forms that must stay visible). */
+  bottomBar?: ReactNode;
   footer?: ReactNode;
   showCloseButton?: boolean;
   maxWidthClass?: string;
@@ -25,9 +27,10 @@ export function ModalShell({
   title,
   titleId = 'modal-title',
   children,
+  bottomBar,
   footer,
   showCloseButton = true,
-  maxWidthClass = 'max-w-lg',
+  maxWidthClass = 'max-w-xl',
   bodyClassName,
   closeOnBackdrop = true,
 }: ModalShellProps): JSX.Element | null {
@@ -80,6 +83,10 @@ export function ModalShell({
           <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-5', bodyClassName)}>
             {children}
           </div>
+
+          {bottomBar && (
+            <div className="shrink-0 border-t border-border bg-slate-50 px-6 py-4">{bottomBar}</div>
+          )}
 
           {footer && <div className="shrink-0 border-t border-border px-6 py-4">{footer}</div>}
         </div>

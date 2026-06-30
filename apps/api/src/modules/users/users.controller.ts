@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -10,8 +13,10 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  type AddAllUserMembershipsInput,
   type CreateUserInput,
   type UpdateUserInput,
+  addAllUserMembershipsSchema,
   createUserSchema,
   updateUserSchema,
 } from '@eccounting/shared';
@@ -40,6 +45,26 @@ export class UsersController {
   async memberships(@Param('id') id: string, @CurrentUser() user: AuthUserContext) {
     const data = await this.users.listMemberships(BigInt(id), user.firmId);
     return { data };
+  }
+
+  @Post(':id/memberships/add-all')
+  @ApiOperation({ summary: 'Tambah akses ke semua klien aktif di firm' })
+  @UsePipes(new ZodValidationPipe(addAllUserMembershipsSchema))
+  async addAllMemberships(
+    @Param('id') id: string,
+    @Body() body: AddAllUserMembershipsInput,
+    @CurrentUser() user: AuthUserContext,
+  ) {
+    const result = await this.users.addAllMemberships(BigInt(id), user.firmId, body.role);
+    return { data: result };
+  }
+
+  @Delete(':id/memberships')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hapus semua akses klien pengguna di firm' })
+  async removeAllMemberships(@Param('id') id: string, @CurrentUser() user: AuthUserContext) {
+    const result = await this.users.removeAllMemberships(BigInt(id), user.firmId);
+    return { data: result };
   }
 
   @Post()

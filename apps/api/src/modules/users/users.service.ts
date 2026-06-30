@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type User, companyMembers, companies, users } from '@eccounting/db';
 import {
+  type CompanyRole,
   type CreateUserInput,
   type UpdateUserInput,
   type UserListItem,
@@ -10,7 +11,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '@eccounting/shared';
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
 import { DbService } from '../../infra/db/db.service';
@@ -88,6 +89,61 @@ export class UsersService {
       companyName: row.companyName,
       role: row.role as UserMembershipItem['role'],
     }));
+  }
+
+  async addAllMemberships(
+    userId: bigint,
+    firmId: bigint,
+    role: CompanyRole,
+  ): Promise<{ count: number }> {
+    await this.getByIdForFirm(userId, firmId);
+
+    const firmCompanies = await this.db.db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.firmId, firmId), isNull(companies.archivedAt)));
+
+    if (firmCompanies.length === 0) return { count: 0 };
+
+    const existing = await this.db.db
+      .select({ companyId: companyMembers.companyId })
+      .from(companyMembers)
+      .innerJoin(companies, eq(companies.id, companyMembers.companyId))
+      .where(and(eq(companyMembers.userId, userId), eq(companies.firmId, firmId)));
+
+    const existingIds = new Set(existing.map((row) => row.companyId));
+    const toAdd = firmCompanies.filter((company) => !existingIds.has(company.id));
+
+    if (toAdd.length === 0) return { count: 0 };
+
+    await this.db.db.insert(companyMembers).values(
+      toAdd.map((company) => ({
+        companyId: company.id,
+        userId,
+        role,
+      })),
+    );
+
+    return { count: toAdd.length };
+  }
+
+  async removeAllMemberships(userId: bigint, firmId: bigint): Promise<{ count: number }> {
+    await this.getByIdForFirm(userId, firmId);
+
+    const firmCompanies = await this.db.db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.firmId, firmId));
+
+    const companyIds = firmCompanies.map((company) => company.id);
+    if (companyIds.length === 0) return { count: 0 };
+
+    const deleted = await this.db.db
+      .delete(companyMembers)
+      .where(and(eq(companyMembers.userId, userId), inArray(companyMembers.companyId, companyIds)))
+      .returning({ companyId: companyMembers.companyId });
+
+    return { count: deleted.length };
   }
 
   async create(input: CreateUserInput, firmId: bigint): Promise<UserListItem> {

@@ -278,7 +278,7 @@ export function CoaTreePage(): JSX.Element {
             Buat Kode Akun Induk Baru
           </button>
           {selectedFlat && (
-            <div className="flex flex-wrap gap-2 text-sm">
+            <div className="flex flex-wrap gap-2 text-sm border border-sky-500 p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => {
@@ -320,31 +320,31 @@ export function CoaTreePage(): JSX.Element {
 
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         {success && <p className="mt-3 text-sm text-emerald-700">{success}</p>}
-      </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-white shadow-sm">
-        {loading ? (
-          <p className="p-6 text-sm text-muted-foreground">Memuat kode akun…</p>
-        ) : tree.length === 0 ? (
-          <p className="p-6 text-sm text-muted-foreground">Belum ada kode akun.</p>
-        ) : (
-          <table className="min-w-full">
-            <tbody>
-              {tree.map((node) => (
-                <CoaTreeNodeRow
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  expanded={expanded}
-                  selectedId={selectedId}
-                  onToggle={toggleExpand}
-                  onSelect={(n) => setSelectedId(n.id)}
-                  onContextMenu={handleContextMenu}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="mt-6 overflow-x-auto p-2 rounded-lg border border-border bg-white shadow-sm">
+          {loading ? (
+            <p className="p-6 text-sm text-muted-foreground">Memuat kode akun…</p>
+          ) : tree.length === 0 ? (
+            <p className="p-6 text-sm text-muted-foreground">Belum ada kode akun.</p>
+          ) : (
+            <table className="min-w-full">
+              <tbody>
+                {tree.map((node) => (
+                  <CoaTreeNodeRow
+                    key={node.id}
+                    node={node}
+                    depth={0}
+                    expanded={expanded}
+                    selectedId={selectedId}
+                    onToggle={toggleExpand}
+                    onSelect={(n) => setSelectedId(n.id)}
+                    onContextMenu={handleContextMenu}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {contextMenu && (
