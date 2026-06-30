@@ -112,6 +112,20 @@ export function DrawerLayout({
     setCompanySelected(hasSelectedCompany());
   }, [pathname]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      // Modal/dialog punya prioritas — jangan tutup drawer jika ada dialog terbuka
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      setOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
   function closeDrawer(): void {
     setOpen(false);
   }
@@ -198,7 +212,7 @@ export function DrawerLayout({
       >
         {/* Page header — setara v1 page_header */}
         <header className="flex flex-wrap items-center gap-3 px-6 pb-4 pt-6">
-          <h1 className="flex items-center gap-2 text-lg font-semibold uppercase tracking-wide text-slate-700">
+          <h1 className="flex items-center gap-2 text-lg font-semibold uppercase tracking-wide text-slate-700 pl-8">
             {backHref && (
               <Link
                 href={backHref}

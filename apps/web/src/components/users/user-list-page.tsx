@@ -135,7 +135,7 @@ export function UserListPage({
     <>
       <div className="overflow-hidden rounded-lg border border-sky-300/70 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p className="text-sm font-medium text-slate-600">Daftar Pengguna</p>
+          <p className="text-lg font-bold tracking-wider text-slate-600">Daftar Pengguna</p>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <span className="whitespace-nowrap">Search:</span>
             <div className="relative">
